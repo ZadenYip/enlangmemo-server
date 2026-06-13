@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
 CREATE TABLE IF NOT EXISTS users (
     id uuid PRIMARY KEY DEFAULT uuidv7(),
     name varying(16) NOT NULL UNIQUE,
-    -- 密码本身32字符以内
+    -- 密码本身32字符以内，hash 用 bcrypt 生成，长度为60字符
     password_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
