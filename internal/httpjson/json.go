@@ -1,4 +1,4 @@
-package server
+package httpjson
 
 import (
 	"encoding/json"
@@ -30,7 +30,7 @@ type errInfo struct {
 }
 
 // 几乎实现是 https://www.alexedwards.net/blog/how-to-properly-parse-a-json-request-body
-func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
+func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	contType := r.Header.Get("Content-Type")
 	if contType != "" {
 		// 获得第一个分号前的部分，因为可能会有 charset=utf-8 之类的参数
@@ -99,24 +99,24 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 }
 
 // 处理 JSON 解码错误
-func handleJSONDecodeError(w http.ResponseWriter, err error) {
+func HandleJSONDecodeError(w http.ResponseWriter, err error) {
 	var mr *malformedRequest
 	if errors.As(err, &mr) {
-		responseError(w, mr.status, "INVALID_ARGUMENT", mr.msg)
+		ResponseError(w, mr.status, "INVALID_ARGUMENT", mr.msg)
 		return
 	}
 
 	const hStatus = http.StatusInternalServerError
 	log.Printf("Unexpected error: %v", err)
-	responseError(w, hStatus, "INTERNAL", http.StatusText(hStatus))
+	ResponseError(w, hStatus, "INTERNAL", http.StatusText(hStatus))
 }
 
 // 处理验证错误
 // json 遵循 Google 的 AIP
 // hStatus - HTTP status code
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
-func responseError(w http.ResponseWriter, hStatus int, status string, message string) {
-	responseJSON(w, hStatus, errResponse{
+func ResponseError(w http.ResponseWriter, hStatus int, status string, message string) {
+	ResponseJSON(w, hStatus, errResponse{
 		Error: errInfo{
 			Code:    hStatus,
 			Message: message,
@@ -126,7 +126,7 @@ func responseError(w http.ResponseWriter, hStatus int, status string, message st
 }
 
 // 返回 JSON 响应
-func responseJSON(w http.ResponseWriter, httpStatus int, v any) {
+func ResponseJSON(w http.ResponseWriter, httpStatus int, v any) {
 	js, err := json.Marshal(v)
 	if err != nil {
 		log.Printf("Failed to marshal JSON response: %v", err)
