@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
@@ -54,28 +53,13 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const insertUser = `
-	INSERT INTO users (name, password_hash) VALUES ($1, $2)
-	`
-	tag, err := srv.dbPool.Exec(r.Context(), insertUser, reg.Name, passwdHash)
-
-	if err != nil {
-		var pgErr *pgconn.PgError
-		// unique_violation 23505：see https://www.postgresql.org/docs/current/errcodes-appendix.html
-		// 默认隔离级别 read committed 配合 unique constraint 防止 read skew 导致的重复用户创建
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if err := srv.users.CreateUser(r.Context(), reg.Name, passwdHash); err != nil {
+		if errors.Is(err, errUserAlreadyExists) {
 			const hStatus = http.StatusConflict
-			httpjson.ResponseError(w, hStatus, "CONFLICT", "User already exists")
-			return
-		} else {
-			const hStatus = http.StatusInternalServerError
-			httpjson.ResponseError(w, hStatus, "INTERNAL", "Failed to create user")
+			httpjson.ResponseError(w, hStatus, "ALREADY_EXISTS", "User already exists")
 			return
 		}
-	}
 
-	tagRowsAffected := tag.RowsAffected()
-	if tagRowsAffected != 1 {
 		const hStatus = http.StatusInternalServerError
 		httpjson.ResponseError(w, hStatus, "INTERNAL", "Failed to create user")
 		return

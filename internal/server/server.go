@@ -8,14 +8,14 @@ import (
 )
 
 type Server struct {
-	dbPool *pgxpool.Pool
-	rdb    *redis.Client
+	users userStore
+	rdb   *redis.Client
 }
 
 func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 	return &Server{
-		dbPool,
-		rdb,
+		users: &pgUserStore{dbPool: dbPool},
+		rdb:   rdb,
 	}
 }
 
