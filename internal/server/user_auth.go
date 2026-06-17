@@ -46,6 +46,7 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		SaltLength:  16,
 		KeyLength:   32,
 	}
+
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
 		const hStatus = http.StatusInternalServerError
@@ -61,6 +62,7 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		// unique_violation 23505：see https://www.postgresql.org/docs/current/errcodes-appendix.html
+		// 默认隔离级别 read committed 配合 unique constraint 防止 read skew 导致的重复用户创建
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			const hStatus = http.StatusConflict
 			httpjson.ResponseError(w, hStatus, "CONFLICT", "User already exists")
