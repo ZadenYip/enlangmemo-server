@@ -1,35 +1,18 @@
 package validation
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"net/http"
 	"unicode/utf8"
-
-	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 )
 
-// 验证错误类型
-type validError struct {
-	fieldName string
-	msg       string
+// ValidError describes a field validation error.
+type ValidError struct {
+	FieldName string
+	Msg       string
 }
 
-func (valid *validError) Error() string {
-	return valid.msg
-}
-
-// 处理验证错误，如果是 validationError 则返回 400 Bad Request，否则返回 500 Internal Server Error
-func HandleValidError(w http.ResponseWriter, err error) {
-	var validErr *validError
-	if errors.As(err, &validErr) {
-		httpjson.ResponseError(w, http.StatusBadRequest, "INVALID_ARGUMENT", validErr.msg)
-	} else {
-		log.Printf("Unexpected error: %v", err)
-		const hStatus = http.StatusInternalServerError
-		httpjson.ResponseError(w, hStatus, "INTERNAL", http.StatusText(hStatus))
-	}
+func (valid *ValidError) Error() string {
+	return valid.Msg
 }
 
 // 验证字符串长度是否超过 maxLen，如果超过则返回 validationError
@@ -40,5 +23,5 @@ func ValidMaxChars(fieldName string, value string, maxLen int) error {
 	}
 
 	msg := fmt.Sprintf("%s must not be longer than %d characters", fieldName, maxLen)
-	return &validError{fieldName: fieldName, msg: msg}
+	return &ValidError{FieldName: fieldName, Msg: msg}
 }
