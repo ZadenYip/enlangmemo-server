@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
@@ -48,20 +49,17 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
-		const hStatus = http.StatusInternalServerError
-		httpjson.ResponseError(w, hStatus, "INTERNAL", "Failed to hash password")
+		httpjson.ResponseError(w, aip.StatusInternal, "Failed to hash password")
 		return
 	}
 
 	if err := srv.users.CreateUser(r.Context(), reg.Name, passwdHash); err != nil {
 		if errors.Is(err, errUserAlreadyExists) {
-			const hStatus = http.StatusConflict
-			httpjson.ResponseError(w, hStatus, "ALREADY_EXISTS", "User already exists")
+			httpjson.ResponseError(w, aip.StatusAlreadyExists, "User already exists")
 			return
 		}
 
-		const hStatus = http.StatusInternalServerError
-		httpjson.ResponseError(w, hStatus, "INTERNAL", "Failed to create user")
+		httpjson.ResponseError(w, aip.StatusInternal, "Failed to create user")
 		return
 	}
 

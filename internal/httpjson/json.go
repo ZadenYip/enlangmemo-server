@@ -8,11 +8,12 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/zadenyip/enlangmemo-server/internal/aip"
 )
 
 type malformedRequest struct {
-	status int
-	msg    string
+	msg string
 }
 
 func (mr *malformedRequest) Error() string {
@@ -37,7 +38,7 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 		mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contType, ";")[0]))
 		if mediaType != "application/json" {
 			msg := "Content-Type header is not application/json"
-			return &malformedRequest{status: http.StatusUnsupportedMediaType, msg: msg}
+			return &malformedRequest{msg: msg}
 		}
 	}
 
@@ -57,31 +58,31 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 		switch {
 		case errors.As(err, &syntaxError):
 			msg := fmt.Sprintf("Request body contains badly-formed JSON (at position %d)", syntaxError.Offset)
-			return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		// 没解析到末尾就遇到了 EOF，JSON 有问题
 		case errors.Is(err, io.ErrUnexpectedEOF):
 			msg := "Request body contains badly-formed JSON"
-			return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		case errors.As(err, &unmarshalTypeError):
 			const format = "Request body contains an invalid value for the %q field (at position %d)"
 			msg := fmt.Sprintf(format, unmarshalTypeError.Field, unmarshalTypeError.Offset)
-			return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		// 错误有前缀 "json: unknown field "，说明 JSON 中有未定义的字段
 		case strings.HasPrefix(err.Error(), "json: unknown field "):
 			fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
 			msg := fmt.Sprintf("Request body contains unknown field %s", fieldName)
-			return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		case errors.Is(err, io.EOF):
 			msg := "Request body must not be empty"
-			return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		case errors.As(err, &maxBytesError):
 			msg := fmt.Sprintf("Request body must not be larger than %d bytes", maxBytes)
-			return &malformedRequest{status: http.StatusRequestEntityTooLarge, msg: msg}
+			return &malformedRequest{msg: msg}
 
 		default:
 			return err
@@ -92,7 +93,7 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	err = dec.Decode(&struct{}{})
 	if !errors.Is(err, io.EOF) {
 		msg := "Request body must only contain a single JSON object"
-		return &malformedRequest{status: http.StatusBadRequest, msg: msg}
+		return &malformedRequest{msg: msg}
 	}
 
 	return nil
@@ -102,25 +103,24 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 func HandleJSONDecodeError(w http.ResponseWriter, err error) {
 	var mr *malformedRequest
 	if errors.As(err, &mr) {
-		ResponseError(w, mr.status, "INVALID_ARGUMENT", mr.msg)
+		ResponseError(w, aip.StatusInvalidArgument, mr.msg)
 		return
 	}
 
-	const hStatus = http.StatusInternalServerError
 	log.Printf("Unexpected error: %v", err)
-	ResponseError(w, hStatus, "INTERNAL", http.StatusText(hStatus))
+	ResponseError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()))
 }
 
 // 处理验证错误
 // json 遵循 Google 的 AIP
-// hStatus - HTTP status code
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
-func ResponseError(w http.ResponseWriter, hStatus int, status string, message string) {
+func ResponseError(w http.ResponseWriter, status aip.ErrorStatus, message string) {
+	hStatus := status.HTTPCode()
 	ResponseJSON(w, hStatus, errResponse{
 		Error: errInfo{
 			Code:    hStatus,
 			Message: message,
-			Status:  status,
+			Status:  status.String(),
 		},
 	})
 }
