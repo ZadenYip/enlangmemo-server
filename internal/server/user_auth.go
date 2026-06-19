@@ -16,6 +16,7 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
+	UserID string `json:"userId"`
 }
 
 func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +54,8 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := srv.users.CreateUser(r.Context(), reg.Name, passwdHash); err != nil {
+	userID, err := srv.users.CreateUser(r.Context(), reg.Name, passwdHash)
+	if err != nil {
 		if errors.Is(err, errUserAlreadyExists) {
 			httpjson.ResponseError(w, aip.StatusAlreadyExists, "User already exists")
 			return
@@ -63,7 +65,7 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{})
+	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID.String()})
 }
 
 type LoginRequest struct {

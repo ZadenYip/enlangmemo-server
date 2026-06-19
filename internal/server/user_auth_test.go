@@ -7,14 +7,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type fakeUserStore struct {
 	err error
 }
 
-func (store fakeUserStore) CreateUser(ctx context.Context, name string, passwordHash string) error {
-	return store.err
+func (store fakeUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error) {
+	return pgtype.UUID{}, store.err
 }
 
 func TestRegister(t *testing.T) {
