@@ -14,3 +14,5 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX idx_users_name ON users(name);
