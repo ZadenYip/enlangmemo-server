@@ -2,11 +2,13 @@ package server
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
 
@@ -38,23 +40,13 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 参数设置参考
-	// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#introduction
-	argon2Params := argon2id.Params{
-		Memory:      19 * 1024,
-		Iterations:  2,
-		Parallelism: 1,
-		SaltLength:  16,
-		KeyLength:   32,
-	}
-
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
 		httpjson.ResponseError(w, aip.StatusInternal, "Failed to hash password")
 		return
 	}
 
-	userID, err := srv.users.CreateUser(r.Context(), reg.Name, passwdHash)
+	userID, err := srv.usersStore.CreateUser(r.Context(), reg.Name, passwdHash)
 	if err != nil {
 		if errors.Is(err, errUserAlreadyExists) {
 			httpjson.ResponseError(w, aip.StatusAlreadyExists, "User already exists")
@@ -73,6 +65,49 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type LoginResponse struct {
+}
+
 func (srv *Server) Login(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	var req LoginRequest
+
+	if err := httpjson.DecodeJSONBody(w, r, &req); err != nil {
+		httpjson.HandleJSONDecodeError(w, err)
+		return
+	}
+
+	userID, actualHash, err := srv.usersStore.GetPasswordHash(r.Context(), req.Name)
+	if err != nil {
+		if errors.Is(err, errUserNotFound) {
+			httpjson.ResponseError(w, aip.StatusNotFound, "User not found")
+			return
+		} else {
+			log.Printf("Failed to get password hash for user %s: %v", req.Name, err)
+			httpjson.ResponseError(w, aip.StatusInternal, "Failed to get password hash")
+			return
+		}
+	}
+
+	match, err := argon2id.ComparePasswordAndHash(req.Password, actualHash)
+	if err != nil {
+		log.Printf("Failed to compare password and hash for user %s: %v", req.Name, err)
+		httpjson.ResponseError(w, aip.StatusInternal, "Failed to compare password and hash")
+		return
+	}
+
+	if !match {
+		httpjson.ResponseError(w, aip.StatusUnauthenticated, "Invalid password")
+		return
+	}
+
+	sessionID, err := srv.ssoStore.Create(r.Context(), userID)
+	if err != nil {
+		log.Printf("Failed to create session for user %s: %v", req.Name, err)
+		httpjson.ResponseError(w, aip.StatusInternal, "Failed to create session")
+		return
+	}
+
+	ssoCookie := sso.GenerateCookie(sessionID)
+	http.SetCookie(w, &ssoCookie)
+	httpjson.ResponseJSON(w, http.StatusOK, LoginResponse{})
 }

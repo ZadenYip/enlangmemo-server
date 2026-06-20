@@ -4,19 +4,33 @@ import (
 	"context"
 	"errors"
 
+	"github.com/alexedwards/argon2id"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type userStore interface {
+type UserStore interface {
 	CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error)
+	GetPasswordHash(ctx context.Context, name string) (string, string, error)
 }
 
 var errUserAlreadyExists = errors.New("user already exists")
+var errUserNotFound = errors.New("user not found")
 
 type pgUserStore struct {
 	dbPool *pgxpool.Pool
+}
+
+// 参数设置参考
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#introduction
+var argon2Params = argon2id.Params{
+	Memory:      19 * 1024,
+	Iterations:  2,
+	Parallelism: 1,
+	SaltLength:  16,
+	KeyLength:   32,
 }
 
 func (store *pgUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error) {
@@ -39,4 +53,22 @@ func (store *pgUserStore) CreateUser(ctx context.Context, name string, passwordH
 	}
 
 	return userID, nil
+}
+
+func (store *pgUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
+	const selectUser = `
+		SELECT id, password_hash FROM users WHERE name = $1
+	`
+
+	var userID pgtype.UUID
+	var storedPasswordHash string
+	err := store.dbPool.QueryRow(ctx, selectUser, name).Scan(&userID, &storedPasswordHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", errUserNotFound
+	}
+	if err != nil {
+		return "", "", err
+	}
+
+	return userID.String(), storedPasswordHash, nil
 }
