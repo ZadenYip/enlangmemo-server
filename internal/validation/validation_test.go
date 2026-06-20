@@ -3,6 +3,8 @@ package validation
 import (
 	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidMaxChars(t *testing.T) {
@@ -47,31 +49,19 @@ func TestValidMaxChars(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidMaxChars(tt.fieldName, tt.value, tt.maxLen)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
+				err := ValidMaxChars(tt.fieldName, tt.value, tt.maxLen)
+				if tt.wantErr {
+					require.Error(t, err)
+
+					var validErr *ValidError
+					require.True(t, errors.As(err, &validErr))
+					require.Equal(t, tt.fieldName, validErr.FieldName)
+					require.Equal(t, tt.wantMsg, err.Error())
+
+					return
 				}
 
-				var validErr *ValidError
-				if !errors.As(err, &validErr) {
-					t.Fatalf("expected *ValidError, got %T", err)
-				}
-
-				if validErr.FieldName != tt.fieldName {
-					t.Fatalf("FieldName = %q, want %q", validErr.FieldName, tt.fieldName)
-				}
-
-				if err.Error() != tt.wantMsg {
-					t.Fatalf("error message = %q, want %q", err.Error(), tt.wantMsg)
-				}
-
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("expected nil error, got %v", err)
-			}
-		})
+				require.NoError(t, err)
+			})
+		}
 	}
-}
