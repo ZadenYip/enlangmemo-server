@@ -41,6 +41,7 @@ func newRegisterRequest(body string) *http.Request {
 	return req
 }
 
+// 测试名字长度超过最大限制的情况
 func TestRegisterNameTooLong(t *testing.T) {
 	userStore := new(mockUserStore)
 	srv := newTestServer(userStore, new(mockSSOStore))
@@ -52,6 +53,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 	userStore.AssertExpectations(t)
 }
 
+// 测试用户已经存在的情况
 func TestRegisterUserAlreadyExists(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
@@ -65,6 +67,7 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 	userStore.AssertExpectations(t)
 }
 
+// 测试如果内部 userStore 报错是否返回 500 错误（StatusInternalServerError）
 func TestRegisterStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
@@ -78,6 +81,7 @@ func TestRegisterStoreError(t *testing.T) {
 	userStore.AssertExpectations(t)
 }
 
+// 测试正常注册
 func TestRegisterSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
@@ -123,6 +127,7 @@ func newTestServer(userStore *mockUserStore, ssoStore *mockSSOStore) *Server {
 	}
 }
 
+// 测试登录用户不存在的情况
 func TestLoginUserNotFound(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
@@ -139,6 +144,7 @@ func TestLoginUserNotFound(t *testing.T) {
 	ssoStore.AssertExpectations(t)
 }
 
+// 测试登录时 userStore 报错的情况
 func TestLoginStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
@@ -155,6 +161,7 @@ func TestLoginStoreError(t *testing.T) {
 	ssoStore.AssertExpectations(t)
 }
 
+// 测试登录时密码错误的情况
 func TestLoginInvalidPassword(t *testing.T) {
 	passwordHash, err := argon2id.CreateHash("password", &argon2Params)
 	require.NoError(t, err)
@@ -173,6 +180,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	ssoStore.AssertExpectations(t)
 }
 
+// 测试登录成功的情况
 func TestLoginSuccess(t *testing.T) {
 	passwordHash, err := argon2id.CreateHash("password", &argon2Params)
 	require.NoError(t, err)
