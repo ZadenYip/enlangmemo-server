@@ -8,7 +8,6 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/infra/pg"
 	"github.com/zadenyip/enlangmemo-server/internal/infra/redisclient"
 	"github.com/zadenyip/enlangmemo-server/internal/server"
-	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 )
 
 func main() {
@@ -19,9 +18,7 @@ func main() {
 	rdb := redisclient.NewClient(config.RedisURL)
 
 	server := server.New(dbPool, rdb)
-	handler := server.Routes()
+	handler := server.GetHandler()
 
-	handler = middleware.Logging(handler)
-	handler = middleware.PanicRecovery(handler)
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }
