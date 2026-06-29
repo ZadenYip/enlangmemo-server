@@ -1,4 +1,4 @@
-package server
+package auth
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +17,9 @@ type mockUserStore struct {
 	mock.Mock
 }
 
-func (store *mockUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error) {
+func (store *mockUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (string, error) {
 	args := store.Called(ctx, name, passwordHash)
-	return args.Get(0).(pgtype.UUID), args.Error(1)
+	return args.String(0), args.Error(1)
 }
 
 func (store *mockUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
@@ -44,10 +43,10 @@ func newRegisterRequest(body string) *http.Request {
 // 测试名字长度超过最大限制的情况
 func TestRegisterNameTooLong(t *testing.T) {
 	userStore := new(mockUserStore)
-	srv := newTestServer(userStore, new(mockSSOStore))
+	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	srv.Register(rr, newRegisterRequest(`{"name":"abcdefghijklmnopq","password":"password"}`))
+	handler.Register(rr, newRegisterRequest(`{"name":"abcdefghijklmnopq","password":"password"}`))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -57,11 +56,11 @@ func TestRegisterNameTooLong(t *testing.T) {
 func TestRegisterUserAlreadyExists(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
-		Return(pgtype.UUID{}, errUserAlreadyExists)
-	srv := newTestServer(userStore, new(mockSSOStore))
+		Return("", ErrUserAlreadyExists)
+	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	srv.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusConflict, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -71,11 +70,11 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 func TestRegisterStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
-		Return(pgtype.UUID{}, errors.New("store error"))
-	srv := newTestServer(userStore, new(mockSSOStore))
+		Return("", errors.New("store error"))
+	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	srv.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -85,11 +84,11 @@ func TestRegisterStoreError(t *testing.T) {
 func TestRegisterSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
-		Return(pgtype.UUID{}, nil)
-	srv := newTestServer(userStore, new(mockSSOStore))
+		Return("user-id", nil)
+	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	srv.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusCreated, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -120,23 +119,20 @@ func newLoginRequest(body string) *http.Request {
 	return req
 }
 
-func newTestServer(userStore *mockUserStore, ssoStore *mockSSOStore) *Server {
-	return &Server{
-		usersStore: userStore,
-		ssoStore:   ssoStore,
-	}
+func newTestHandler(userStore *mockUserStore, ssoStore *mockSSOStore) *HTTPHandler {
+	return NewHTTPHandler(userStore, ssoStore)
 }
 
 // 测试登录用户不存在的情况
 func TestLoginUserNotFound(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
-		Return("", "", errUserNotFound)
+		Return("", "", ErrUserNotFound)
 	ssoStore := new(mockSSOStore)
-	srv := newTestServer(userStore, ssoStore)
+	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	srv.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusNotFound, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -150,10 +146,10 @@ func TestLoginStoreError(t *testing.T) {
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
 		Return("", "", errors.New("store error"))
 	ssoStore := new(mockSSOStore)
-	srv := newTestServer(userStore, ssoStore)
+	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	srv.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -169,10 +165,10 @@ func TestLoginInvalidPassword(t *testing.T) {
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
 		Return("user-id", passwordHash, nil)
 	ssoStore := new(mockSSOStore)
-	srv := newTestServer(userStore, ssoStore)
+	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	srv.Login(rr, newLoginRequest(`{"name":"alice","password":"wrong-password"}`))
+	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"wrong-password"}`))
 
 	require.Equal(t, http.StatusUnauthorized, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -190,10 +186,10 @@ func TestLoginSuccess(t *testing.T) {
 	ssoStore := new(mockSSOStore)
 	ssoStore.On("Create", mock.Anything, "user-id").
 		Return("session-id", nil)
-	srv := newTestServer(userStore, ssoStore)
+	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	srv.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())

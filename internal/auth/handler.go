@@ -1,4 +1,4 @@
-package server
+package auth
 
 import (
 	"errors"
@@ -9,8 +9,20 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
-	"github.com/zadenyip/enlangmemo-server/internal/validation"
+	valid "github.com/zadenyip/enlangmemo-server/internal/validation"
 )
+
+type HTTPHandler struct {
+	users    UserStore
+	sessions SessionStore
+}
+
+func NewHTTPHandler(users UserStore, sessions SessionStore) *HTTPHandler {
+	return &HTTPHandler{
+		users:    users,
+		sessions: sessions,
+	}
+}
 
 type RegisterRequest struct {
 	Name     string `json:"name"`
@@ -21,7 +33,7 @@ type RegisterResponse struct {
 	UserID string `json:"userId"`
 }
 
-func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// TODO 加入限制请求频率的中间件，防止暴力破解密码
 	var reg RegisterRequest
 
@@ -30,13 +42,13 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validation.ValidMaxChars("name", reg.Name, 16); err != nil {
-		handleValidationError(w, err)
+	if err := valid.ValidMaxChars("name", reg.Name, 16); err != nil {
+		valid.HandleValidationError(w, err)
 		return
 	}
 
-	if err := validation.ValidMaxChars("password", reg.Password, 32); err != nil {
-		handleValidationError(w, err)
+	if err := valid.ValidMaxChars("password", reg.Password, 32); err != nil {
+		valid.HandleValidationError(w, err)
 		return
 	}
 
@@ -46,9 +58,9 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := srv.usersStore.CreateUser(r.Context(), reg.Name, passwdHash)
+	userID, err := h.users.CreateUser(r.Context(), reg.Name, passwdHash)
 	if err != nil {
-		if errors.Is(err, errUserAlreadyExists) {
+		if errors.Is(err, ErrUserAlreadyExists) {
 			httpjson.ResponseError(w, aip.StatusAlreadyExists, "User already exists")
 			return
 		}
@@ -57,7 +69,7 @@ func (srv *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID.String()})
+	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID})
 }
 
 type LoginRequest struct {
@@ -68,7 +80,7 @@ type LoginRequest struct {
 type LoginResponse struct {
 }
 
-func (srv *Server) Login(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := httpjson.DecodeJSONBody(w, r, &req); err != nil {
@@ -76,9 +88,19 @@ func (srv *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, actualHash, err := srv.usersStore.GetPasswordHash(r.Context(), req.Name)
+	if err := valid.ValidMaxChars("name", req.Name, 16); err != nil {
+		valid.HandleValidationError(w, err)
+		return
+	}
+
+	if err := valid.ValidMaxChars("password", req.Password, 32); err != nil {
+		valid.HandleValidationError(w, err)
+		return
+	}
+
+	userID, actualHash, err := h.users.GetPasswordHash(r.Context(), req.Name)
 	if err != nil {
-		if errors.Is(err, errUserNotFound) {
+		if errors.Is(err, ErrUserNotFound) {
 			httpjson.ResponseError(w, aip.StatusNotFound, "User not found")
 			return
 		} else {
@@ -100,7 +122,7 @@ func (srv *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := srv.ssoStore.Create(r.Context(), userID)
+	sessionID, err := h.sessions.Create(r.Context(), userID)
 	if err != nil {
 		log.Printf("Failed to create session for user %s: %v", req.Name, err)
 		httpjson.ResponseError(w, aip.StatusInternal, "Failed to create session")

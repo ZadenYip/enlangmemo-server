@@ -5,19 +5,21 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 type Server struct {
-	usersStore UserStore
-	ssoStore   sso.SSOStore
+	authHandler *auth.HTTPHandler
 }
 
 func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
+	userStore := auth.NewPGUserStore(dbPool)
+	ssoStore := &sso.RedisSSOStore{Rds: rdb}
+
 	return &Server{
-		usersStore: &pgUserStore{dbPool: dbPool},
-		ssoStore:   &sso.RedisSSOStore{Rds: rdb},
+		authHandler: auth.NewHTTPHandler(userStore, ssoStore),
 	}
 }
 
@@ -25,8 +27,8 @@ func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 func (srv *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /v1/auth/register", srv.Register)
-	mux.HandleFunc("POST /v1/auth/login", srv.Login)
+	mux.HandleFunc("POST /v1/auth/register", srv.authHandler.Register)
+	mux.HandleFunc("POST /v1/auth/login", srv.authHandler.Login)
 	return mux
 }
 

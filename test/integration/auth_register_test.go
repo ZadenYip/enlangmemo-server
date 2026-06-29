@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
+	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
-	"github.com/zadenyip/enlangmemo-server/internal/server"
 )
 
 func newRegisterRequest(t *testing.T, body []byte) *http.Request {
@@ -38,7 +38,7 @@ func doRegister(t *testing.T, body []byte) *http.Response {
 	return resp
 }
 
-func marshalRegisterRequest(t *testing.T, body server.RegisterRequest) []byte {
+func marshalRegisterRequest(t *testing.T, body auth.RegisterRequest) []byte {
 	t.Helper()
 
 	jsonBody, err := json.Marshal(body)
@@ -50,7 +50,7 @@ func marshalRegisterRequest(t *testing.T, body server.RegisterRequest) []byte {
 func TestRegisterSuccess(t *testing.T) {
 	resetEnv(t)
 
-	body := server.RegisterRequest{
+	body := auth.RegisterRequest{
 		Name:     "testuser",
 		Password: "testpassword",
 	}
@@ -59,7 +59,7 @@ func TestRegisterSuccess(t *testing.T) {
 	// 检查响应状态码
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	var registerResp server.RegisterResponse
+	var registerResp auth.RegisterResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&registerResp))
 	require.NotEmpty(t, registerResp.UserID)
 }
@@ -82,7 +82,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 	resetEnv(t)
 
 	// 超过最大长度的用户名（限制为16个字符）
-	body := server.RegisterRequest{
+	body := auth.RegisterRequest{
 		// 17个字符
 		Name:     "abcdefghijklmnopq",
 		Password: "testpassword",
@@ -104,7 +104,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 func TestRegisterPasswordTooLong(t *testing.T) {
 	resetEnv(t)
 
-	body := server.RegisterRequest{
+	body := auth.RegisterRequest{
 		Name: "testuser",
 		// 33 字符
 		Password: "abcdefghijklmnopqrstuvwxyzabcdefg",
@@ -125,7 +125,7 @@ func TestRegisterPasswordTooLong(t *testing.T) {
 func TestRegisterUserAlreadyExists(t *testing.T) {
 	resetEnv(t)
 
-	body := server.RegisterRequest{
+	body := auth.RegisterRequest{
 		Name:     "testuser",
 		Password: "testpassword",
 	}
