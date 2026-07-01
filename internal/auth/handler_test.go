@@ -119,8 +119,8 @@ func newLoginRequest(body string) *http.Request {
 	return req
 }
 
-func newTestHandler(userStore *mockUserStore, ssoStore *mockSSOStore) *HTTPHandler {
-	return NewHTTPHandler(userStore, ssoStore)
+func newTestHandler(userStore *mockUserStore, ssoStore *mockSSOStore) *AuthHandler {
+	return NewAuthHandler(userStore, ssoStore)
 }
 
 // 测试登录用户不存在的情况

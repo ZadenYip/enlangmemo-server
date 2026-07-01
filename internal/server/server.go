@@ -11,7 +11,7 @@ import (
 )
 
 type Server struct {
-	authHandler *auth.HTTPHandler
+	authHandler *auth.AuthHandler
 }
 
 func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
@@ -19,7 +19,7 @@ func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 	ssoStore := &sso.RedisSSOStore{Rds: rdb}
 
 	return &Server{
-		authHandler: auth.NewHTTPHandler(userStore, ssoStore),
+		authHandler: auth.NewAuthHandler(userStore, ssoStore),
 	}
 }
 

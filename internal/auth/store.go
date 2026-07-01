@@ -5,12 +5,12 @@ import (
 	"errors"
 )
 
-type UserStorer interface {
+type UserStore interface {
 	CreateUser(ctx context.Context, name string, passwordHash string) (string, error)
 	GetPasswordHash(ctx context.Context, name string) (string, string, error)
 }
 
-type SessionStorer interface {
+type SessionStore interface {
 	Create(ctx context.Context, userID string) (string, error)
 }
 
