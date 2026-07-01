@@ -12,6 +12,7 @@ type UserStore interface {
 
 type SessionStore interface {
 	Create(ctx context.Context, userID string) (string, error)
+	Logout(ctx context.Context, sessionID string) error
 }
 
 var ErrUserAlreadyExists = errors.New("user already exists")

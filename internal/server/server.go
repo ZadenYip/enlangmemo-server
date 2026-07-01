@@ -27,8 +27,11 @@ func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 func (srv *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
+	// auth
 	mux.HandleFunc("POST /v1/auth/register", srv.authHandler.Register)
 	mux.HandleFunc("POST /v1/auth/login", srv.authHandler.Login)
+	mux.HandleFunc("POST /v1/auth/logout", srv.authHandler.Logout)
+
 	return mux
 }
 
