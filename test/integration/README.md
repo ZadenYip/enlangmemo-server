@@ -85,9 +85,7 @@ env.dbPool
 
 需要检查 Redis 状态时，可以使用：
 
-```go
-env.redisClient
-```
+    env.rdsClient
 
 不要在测试里长期保存这些 client。`resetEnv(t)` 会关闭旧连接并创建新的连接池和 Redis client。
 
