@@ -72,7 +72,7 @@ func TestLoginSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// 检查 Cookie 是否设置正确
-	require.NotEmpty(t, resp.Cookies())
+	require.Equal(t, len(resp.Cookies()), 1)
 	require.Equal(t, "__Host-sso_token", resp.Cookies()[0].Name)
 
 	var loginResp auth.LoginResponse
