@@ -20,11 +20,11 @@ func (mr *malformedRequest) Error() string {
 	return mr.msg
 }
 
-type errResponse struct {
-	Error errInfo `json:"error"`
+type ErrResponse struct {
+	Error ErrInfo `json:"error"`
 }
 
-type errInfo struct {
+type ErrInfo struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Status  string `json:"status"`
@@ -116,8 +116,8 @@ func HandleJSONDecodeError(w http.ResponseWriter, err error) {
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
 func ResponseError(w http.ResponseWriter, status aip.ErrorStatus, message string) {
 	hStatus := status.HTTPCode()
-	ResponseJSON(w, hStatus, errResponse{
-		Error: errInfo{
+	ResponseJSON(w, hStatus, ErrResponse{
+		Error: ErrInfo{
 			Code:    hStatus,
 			Message: message,
 			Status:  status.String(),

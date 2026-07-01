@@ -1,39 +1,24 @@
-package server
+package auth
 
 import (
 	"context"
 	"errors"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type UserStore interface {
-	CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error)
-	GetPasswordHash(ctx context.Context, name string) (string, string, error)
-}
-
-var errUserAlreadyExists = errors.New("user already exists")
-var errUserNotFound = errors.New("user not found")
-
-type pgUserStore struct {
+type PGUserStore struct {
 	dbPool *pgxpool.Pool
 }
 
-// 参数设置参考
-// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#introduction
-var argon2Params = argon2id.Params{
-	Memory:      19 * 1024,
-	Iterations:  2,
-	Parallelism: 1,
-	SaltLength:  16,
-	KeyLength:   32,
+func NewPGUserStore(dbPool *pgxpool.Pool) *PGUserStore {
+	return &PGUserStore{dbPool: dbPool}
 }
 
-func (store *pgUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (pgtype.UUID, error) {
+func (store *PGUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (string, error) {
 	const insertUser = `
 		INSERT INTO users (name, password_hash) VALUES ($1, $2)
 		RETURNING id
@@ -46,16 +31,16 @@ func (store *pgUserStore) CreateUser(ctx context.Context, name string, passwordH
 		// unique_violation 23505: see https://www.postgresql.org/docs/current/errcodes-appendix.html
 		// 默认隔离级别 read committed 配合 unique constraint 防止 read skew 导致的重复用户创建
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return pgtype.UUID{}, errUserAlreadyExists
+			return "", ErrUserAlreadyExists
 		}
 
-		return pgtype.UUID{}, err
+		return "", err
 	}
 
-	return userID, nil
+	return userID.String(), nil
 }
 
-func (store *pgUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
+func (store *PGUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
 	const selectUser = `
 		SELECT id, password_hash FROM users WHERE name = $1
 	`
@@ -64,7 +49,7 @@ func (store *pgUserStore) GetPasswordHash(ctx context.Context, name string) (str
 	var storedPasswordHash string
 	err := store.dbPool.QueryRow(ctx, selectUser, name).Scan(&userID, &storedPasswordHash)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", errUserNotFound
+		return "", "", ErrUserNotFound
 	}
 	if err != nil {
 		return "", "", err

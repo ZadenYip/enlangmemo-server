@@ -1,4 +1,4 @@
-package server
+package validation
 
 import (
 	"errors"
@@ -7,11 +7,10 @@ import (
 
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
-	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
 
-func handleValidationError(w http.ResponseWriter, err error) {
-	var validErr *validation.ValidError
+func HandleValidationError(w http.ResponseWriter, err error) {
+	var validErr *ValidError
 	if errors.As(err, &validErr) {
 		httpjson.ResponseError(w, aip.StatusInvalidArgument, validErr.Msg)
 		return

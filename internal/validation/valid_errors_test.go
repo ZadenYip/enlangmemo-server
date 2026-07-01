@@ -1,4 +1,4 @@
-package server
+package validation
 
 import (
 	"errors"
@@ -8,13 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
 
 func TestValidError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	handleValidationError(rr, &validation.ValidError{
+	HandleValidationError(rr, &ValidError{
 		FieldName: "name",
 		Msg:       "invalid name",
 	})
@@ -30,7 +29,7 @@ func TestValidError(t *testing.T) {
 func TestUnexpectedError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	handleValidationError(rr, errors.New("boom"))
+	HandleValidationError(rr, errors.New("boom"))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
