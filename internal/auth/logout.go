@@ -17,7 +17,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(sso.CookieName)
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
-
 			// 如果没有 cookie，仍然返回 200 OK，并清除 cookie
 			expiredCookie := sso.GenerateExpiredCookie()
 			http.SetCookie(w, &expiredCookie)
@@ -27,6 +26,14 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("Failed to read session cookie: %v", err)
 		httpjson.ResponseError(w, aip.StatusInternal, "Failed to read session cookie")
+		return
+	}
+
+	// cookie 值为空的情况也应该返回 200 OK，并清除客户端 cookie
+	if cookie.Value == "" {
+		expiredCookie := sso.GenerateExpiredCookie()
+		http.SetCookie(w, &expiredCookie)
+		httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{})
 		return
 	}
 

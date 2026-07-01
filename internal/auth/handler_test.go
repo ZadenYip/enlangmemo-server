@@ -175,6 +175,27 @@ func TestLogoutMissingCookie(t *testing.T) {
 	ssoStore.AssertExpectations(t)
 }
 
+// 测试退出登录时 session cookie 为空的情况
+func TestLogoutEmptyCookie(t *testing.T) {
+	userStore := new(mockUserStore)
+	ssoStore := new(mockSSOStore)
+	handler := newTestHandler(userStore, ssoStore)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
+	req.AddCookie(&http.Cookie{Name: "__Host-sso_token", Value: ""})
+	handler.Logout(rr, req)
+
+	cookies := rr.Result().Cookies()
+	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
+	require.Len(t, cookies, 1)
+	require.Equal(t, "__Host-sso_token", cookies[0].Name)
+	require.Equal(t, "", cookies[0].Value)
+	require.Equal(t, -1, cookies[0].MaxAge)
+	userStore.AssertExpectations(t)
+	ssoStore.AssertExpectations(t)
+}
+
 // 测试退出登录时 session store 报错的情况
 func TestLogoutStoreError(t *testing.T) {
 	userStore := new(mockUserStore)

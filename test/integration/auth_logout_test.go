@@ -46,7 +46,7 @@ func loginForLogout(t *testing.T) *http.Cookie {
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.NotEmpty(t, resp.Cookies())
+	require.Equal(t, len(resp.Cookies()), 1)
 
 	return resp.Cookies()[0]
 }
@@ -78,13 +78,29 @@ func TestLogoutMissingCookie(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&logoutResp))
 }
 
+// 空 cookie 值应当当成未登录处理，并清除 cookie
+func TestLogoutEmptyCookie(t *testing.T) {
+	resetEnv(t)
+
+	resp := doLogout(t, &http.Cookie{
+		Name:  sso.CookieName,
+		Value: "",
+	})
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	requireExpiredSSOCookie(t, resp)
+
+	var logoutResp auth.LogoutResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&logoutResp))
+}
+
 // TestLogoutInvalidOrExpiredCookie 测试带有无效或过期 cookie 的退出登录请求
 func TestLogoutInvalidOrExpiredCookie(t *testing.T) {
 	resetEnv(t)
 
 	resp := doLogout(t, &http.Cookie{
 		Name:  sso.CookieName,
-		Value: "invalid-or-expired-session-id",
+		Value: "invalid-session-id",
 	})
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
