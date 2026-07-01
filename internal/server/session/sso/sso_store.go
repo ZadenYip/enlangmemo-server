@@ -18,8 +18,12 @@ type SSOStore interface {
 var ErrSessionIDCollision = errors.New("session id collision")
 
 const (
-	ssoKeyPrefix      = "sso:"
-	ssoSessionTTL     = 8 * time.Hour
+	ssoKeyPrefix           = "sso:"
+	sessionTimeoutDuration = 8 * time.Hour
+
+	// 8 hours in seconds
+	sessionMaxAge = 8 * 3600
+
 	createMaxAttempts = 3
 )
 
@@ -35,7 +39,7 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 		}
 
 		key := ssoKeyPrefix + sessionID
-		ok, err := store.Rds.SetNX(ctx, key, userID, ssoSessionTTL).Result()
+		ok, err := store.Rds.SetNX(ctx, key, userID, sessionTimeoutDuration).Result()
 		if err != nil {
 			return "", err
 		}
@@ -45,6 +49,10 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 	}
 
 	return "", ErrSessionIDCollision
+}
+
+func (store *RedisSSOStore) Logout(ctx context.Context, sessionID string) error {
+	return store.Rds.Del(ctx, ssoKeyPrefix+sessionID).Err()
 }
 
 func (store *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
