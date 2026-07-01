@@ -13,11 +13,11 @@ import (
 )
 
 type HTTPHandler struct {
-	users    UserStore
-	sessions SessionStore
+	users    UserStorer
+	sessions SessionStorer
 }
 
-func NewHTTPHandler(users UserStore, sessions SessionStore) *HTTPHandler {
+func NewHTTPHandler(users UserStorer, sessions SessionStorer) *HTTPHandler {
 	return &HTTPHandler{
 		users:    users,
 		sessions: sessions,
