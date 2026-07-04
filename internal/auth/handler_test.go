@@ -46,7 +46,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.Register(rr, newRegisterRequest(`{"name":"abcdefghijklmnopq","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"name":"abcdefghijklmnopq","password":"password"}`))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -60,7 +60,7 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusConflict, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -74,7 +74,7 @@ func TestRegisterStoreError(t *testing.T) {
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -88,7 +88,7 @@ func TestRegisterSuccess(t *testing.T) {
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.Register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusCreated, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -148,7 +148,7 @@ func TestLoginUserNotFound(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusNotFound, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -163,7 +163,7 @@ func TestLogoutMissingCookie(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Logout(rr, newLogoutRequest(""))
+	handler.logout(rr, newLogoutRequest(""))
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
@@ -184,7 +184,7 @@ func TestLogoutEmptyCookie(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: "__Host-sso_token", Value: ""})
-	handler.Logout(rr, req)
+	handler.logout(rr, req)
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
@@ -205,7 +205,7 @@ func TestLogoutStoreError(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Logout(rr, newLogoutRequest("session-id"))
+	handler.logout(rr, newLogoutRequest("session-id"))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -221,7 +221,7 @@ func TestLogoutSuccess(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Logout(rr, newLogoutRequest("session-id"))
+	handler.logout(rr, newLogoutRequest("session-id"))
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
@@ -242,7 +242,7 @@ func TestLoginStoreError(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -261,7 +261,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"wrong-password"}`))
+	handler.login(rr, newLoginRequest(`{"name":"alice","password":"wrong-password"}`))
 
 	require.Equal(t, http.StatusUnauthorized, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -282,7 +282,7 @@ func TestLoginSuccess(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.Login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
