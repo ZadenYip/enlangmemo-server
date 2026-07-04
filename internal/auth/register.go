@@ -19,7 +19,7 @@ type RegisterResponse struct {
 	UserID string `json:"userId"`
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	// TODO 加入限制请求频率的中间件，防止暴力破解密码
 	var reg RegisterRequest
 

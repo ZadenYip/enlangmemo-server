@@ -14,6 +14,11 @@ type Server struct {
 	authHandler *auth.AuthHandler
 }
 
+// 注册路由标签函数
+type RouteRegistrar interface {
+	RegisterRoutes(mux *http.ServeMux)
+}
+
 func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 	userStore := auth.NewPGUserStore(dbPool)
 	ssoStore := &sso.RedisSSOStore{Rds: rdb}
@@ -27,10 +32,8 @@ func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 func (srv *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	// auth
-	mux.HandleFunc("POST /v1/auth/register", srv.authHandler.Register)
-	mux.HandleFunc("POST /v1/auth/login", srv.authHandler.Login)
-	mux.HandleFunc("POST /v1/auth/logout", srv.authHandler.Logout)
+	// 注册注册和登录的路由
+	srv.authHandler.RegisterRoutes(mux)
 
 	return mux
 }

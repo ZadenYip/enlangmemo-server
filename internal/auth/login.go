@@ -20,7 +20,7 @@ type LoginRequest struct {
 type LoginResponse struct {
 }
 
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := httpjson.DecodeJSONBody(w, r, &req); err != nil {

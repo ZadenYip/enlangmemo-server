@@ -1,6 +1,10 @@
 package auth
 
-import "github.com/alexedwards/argon2id"
+import (
+	"net/http"
+
+	"github.com/alexedwards/argon2id"
+)
 
 type AuthHandler struct {
 	users    UserStore
@@ -12,6 +16,12 @@ func NewAuthHandler(users UserStore, sessions SessionStore) *AuthHandler {
 		users:    users,
 		sessions: sessions,
 	}
+}
+
+func (h *AuthHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/auth/register", h.register)
+	mux.HandleFunc("POST /v1/auth/login", h.login)
+	mux.HandleFunc("POST /v1/auth/logout", h.logout)
 }
 
 // 参数设置参考

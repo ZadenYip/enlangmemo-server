@@ -13,7 +13,7 @@ import (
 type LogoutResponse struct {
 }
 
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(sso.CookieName)
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
