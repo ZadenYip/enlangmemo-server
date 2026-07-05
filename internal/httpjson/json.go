@@ -16,18 +16,11 @@ type malformedRequest struct {
 	msg string
 }
 
+type ErrResponse = aip.ErrResponse
+type ErrInfo = aip.ErrStatus
+
 func (mr *malformedRequest) Error() string {
 	return mr.msg
-}
-
-type ErrResponse struct {
-	Error ErrInfo `json:"error"`
-}
-
-type ErrInfo struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  string `json:"status"`
 }
 
 // 几乎实现是 https://www.alexedwards.net/blog/how-to-properly-parse-a-json-request-body
@@ -103,26 +96,25 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 func HandleJSONDecodeError(w http.ResponseWriter, err error) {
 	var mr *malformedRequest
 	if errors.As(err, &mr) {
-		ResponseError(w, aip.StatusInvalidArgument, mr.msg)
+		ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInvalidArgument).
+				WithMessage(mr.msg))
 		return
 	}
 
 	log.Printf("Unexpected error: %v", err)
-	ResponseError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()))
+	ResponseError(w,
+		aip.NewErrResponse().
+			WithCodeAndStatus(aip.StatusInternal).
+			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())))
 }
 
 // 处理验证错误
 // json 遵循 Google 的 AIP
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
-func ResponseError(w http.ResponseWriter, status aip.ErrorStatus, message string) {
-	hStatus := status.HTTPCode()
-	ResponseJSON(w, hStatus, ErrResponse{
-		Error: ErrInfo{
-			Code:    hStatus,
-			Message: message,
-			Status:  status.String(),
-		},
-	})
+func ResponseError(w http.ResponseWriter, errResp *aip.ErrResponse) {
+	ResponseJSON(w, errResp.Error.Code, errResp)
 }
 
 // 返回 JSON 响应

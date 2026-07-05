@@ -12,10 +12,16 @@ import (
 func HandleValidationError(w http.ResponseWriter, err error) {
 	var validErr *ValidError
 	if errors.As(err, &validErr) {
-		httpjson.ResponseError(w, aip.StatusInvalidArgument, validErr.Msg)
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInvalidArgument).
+				WithMessage(validErr.Msg))
 		return
 	}
 
 	log.Printf("Unexpected error: %v", err)
-	httpjson.ResponseError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()))
+	httpjson.ResponseError(w,
+		aip.NewErrResponse().
+			WithCodeAndStatus(aip.StatusInternal).
+			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())))
 }

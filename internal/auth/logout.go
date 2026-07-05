@@ -25,7 +25,10 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Failed to read session cookie: %v", err)
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to read session cookie")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to read session cookie"))
 		return
 	}
 
@@ -39,7 +42,10 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.sessions.Logout(r.Context(), cookie.Value); err != nil {
 		log.Printf("Failed to delete session: %v", err)
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to delete session")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to delete session"))
 		return
 	}
 

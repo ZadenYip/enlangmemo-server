@@ -13,7 +13,10 @@ func PanicRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				httpjson.ResponseError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()))
+				httpjson.ResponseError(w,
+					aip.NewErrResponse().
+						WithCodeAndStatus(aip.StatusInternal).
+						WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())))
 				log.Println(string(debug.Stack()))
 			}
 		}()
