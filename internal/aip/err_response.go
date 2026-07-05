@@ -1,5 +1,6 @@
 package aip
 
+// 各个语义参考 https://google.aip.dev/193#guidance
 type ErrResponse struct {
 	Error ErrStatus `json:"error"`
 }
@@ -8,7 +9,7 @@ type ErrStatus struct {
 	Code    int      `json:"code"`
 	Message string   `json:"message"`
 	Status  string   `json:"status"`
-	Details []Detail `json:"details,omitempty"`
+	Details []Detail `json:"details"`
 }
 
 type Detail struct {
