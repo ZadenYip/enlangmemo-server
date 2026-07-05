@@ -41,11 +41,17 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	userID, actualHash, err := h.users.GetPasswordHash(r.Context(), req.Name)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			httpjson.ResponseError(w, aip.StatusNotFound, "User not found")
+			httpjson.ResponseError(w,
+				aip.NewErrResponse().
+					WithCodeAndStatus(aip.StatusNotFound).
+					WithMessage("User not found"))
 			return
 		} else {
 			log.Printf("Failed to get password hash for user %s: %v", req.Name, err)
-			httpjson.ResponseError(w, aip.StatusInternal, "Failed to get password hash")
+			httpjson.ResponseError(w,
+				aip.NewErrResponse().
+					WithCodeAndStatus(aip.StatusInternal).
+					WithMessage("Failed to get password hash"))
 			return
 		}
 	}
@@ -53,19 +59,28 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	match, err := argon2id.ComparePasswordAndHash(req.Password, actualHash)
 	if err != nil {
 		log.Printf("Failed to compare password and hash for user %s: %v", req.Name, err)
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to compare password and hash")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to compare password and hash"))
 		return
 	}
 
 	if !match {
-		httpjson.ResponseError(w, aip.StatusUnauthenticated, "Invalid password")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusUnauthenticated).
+				WithMessage("Invalid password"))
 		return
 	}
 
 	sessionID, err := h.sessions.Create(r.Context(), userID)
 	if err != nil {
 		log.Printf("Failed to create session for user %s: %v", req.Name, err)
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to create session")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to create session"))
 		return
 	}
 

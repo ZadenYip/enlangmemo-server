@@ -40,18 +40,27 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to hash password")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to hash password"))
 		return
 	}
 
 	userID, err := h.users.CreateUser(r.Context(), reg.Name, passwdHash)
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
-			httpjson.ResponseError(w, aip.StatusAlreadyExists, "User already exists")
+			httpjson.ResponseError(w,
+				aip.NewErrResponse().
+					WithCodeAndStatus(aip.StatusAlreadyExists).
+					WithMessage("User already exists"))
 			return
 		}
 
-		httpjson.ResponseError(w, aip.StatusInternal, "Failed to create user")
+		httpjson.ResponseError(w,
+			aip.NewErrResponse().
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage("Failed to create user"))
 		return
 	}
 
