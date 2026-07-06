@@ -61,12 +61,3 @@ func TestMaxChars(t *testing.T) {
 		})
 	}
 }
-
-func TestValidatorNonFieldErrors(t *testing.T) {
-	v := NewValidator()
-
-	v.AddNonFieldError("invalid credentials")
-
-	require.False(t, v.Valid())
-	require.Equal(t, []string{"invalid credentials"}, v.NonFieldErrors)
-}

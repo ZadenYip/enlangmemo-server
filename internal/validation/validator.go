@@ -7,9 +7,9 @@ import (
 )
 
 type Validator struct {
-	FailMsg        string
-	NonFieldErrors []string
-	FieldErrors    map[string]string
+	FailMsg string
+	// NonFieldErrors []string
+	FieldErrors map[string]string
 }
 
 func NewValidator() *Validator {
@@ -36,13 +36,10 @@ func (v *Validator) CheckField(ok bool, key, msg string) {
 	}
 }
 
-func (v *Validator) AddNonFieldError(msg string) {
-	v.NonFieldErrors = append(v.NonFieldErrors, msg)
-}
-
 // 如果没 field errors，则 Valid() 返回 true，否则返回 false。
 func (v *Validator) Valid() bool {
-	return len(v.FieldErrors) == 0 && len(v.NonFieldErrors) == 0
+	return len(v.FieldErrors) == 0
+	//&& len(v.NonFieldErrors) == 0
 }
 
 // 如果 value 包含不超过 maxLen 个字符，则 MaxChars() 返回 true。
@@ -51,13 +48,14 @@ func MaxChars(value string, maxLen int) bool {
 }
 
 func (v *Validator) Detail() *aip.BadRequest {
-	var details []aip.BadRequestViolation
+	details := make([]aip.FieldViolation, 0, len(v.FieldErrors))
 	for field, msg := range v.FieldErrors {
-		details = append(details, aip.BadRequestViolation{
+		details = append(details, aip.FieldViolation{
 			Field:       field,
 			Description: msg,
 		})
 	}
+
 	return &aip.BadRequest{
 		BadRequestViolation: details,
 	}
