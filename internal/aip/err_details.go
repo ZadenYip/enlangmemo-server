@@ -1,10 +1,10 @@
 package aip
 
 type BadRequest struct {
-	BadRequestViolation []BadRequestViolation `json:"fieldViolations"`
+	BadRequestViolation []FieldViolation `json:"fieldViolations"`
 }
 
-type BadRequestViolation struct {
+type FieldViolation struct {
 	Field       string `json:"field"`
 	Description string `json:"description"`
 }
