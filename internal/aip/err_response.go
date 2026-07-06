@@ -6,21 +6,16 @@ type ErrResponse struct {
 }
 
 type ErrStatus struct {
-	Code    int      `json:"code"`
-	Message string   `json:"message"`
-	Status  string   `json:"status"`
-	Details []Detail `json:"details"`
-}
-
-type Detail struct {
-	Reason   string            `json:"reason"`
-	Metadata map[string]string `json:"metadata"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+	Details []any  `json:"details"`
 }
 
 func NewErrResponse() *ErrResponse {
 	return &ErrResponse{
 		Error: ErrStatus{
-			Details: []Detail{},
+			Details: []any{},
 		},
 	}
 }
@@ -30,18 +25,13 @@ func (er *ErrResponse) WithMessage(message string) *ErrResponse {
 	return er
 }
 
-func (er *ErrResponse) WithDetails(details []Detail) *ErrResponse {
-	er.Error.Details = details
-	return er
-}
-
 func (er *ErrResponse) WithCodeAndStatus(status ErrorStatus) *ErrResponse {
 	er.Error.Code = status.HTTPCode()
 	er.Error.Status = status.String()
 	return er
 }
 
-func (er *ErrResponse) AppendDetail(detail Detail) *ErrResponse {
+func (er *ErrResponse) WithBadRequestDetail(detail *BadRequest) *ErrResponse {
 	er.Error.Details = append(er.Error.Details, detail)
 	return er
 }

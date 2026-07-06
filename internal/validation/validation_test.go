@@ -1,13 +1,12 @@
 package validation
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidMaxChars(t *testing.T) {
+func TestMaxChars(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldName string
@@ -49,19 +48,16 @@ func TestValidMaxChars(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-				err := ValidMaxChars(tt.fieldName, tt.value, tt.maxLen)
-				if tt.wantErr {
-					require.Error(t, err)
+			v := NewValidator()
+			v.CheckField(MaxChars(tt.value, tt.maxLen), tt.fieldName, tt.wantMsg)
+			if tt.wantErr {
+				require.False(t, v.Valid())
+				require.Equal(t, tt.wantMsg, v.FieldErrors[tt.fieldName])
 
-					var validErr *ValidError
-					require.True(t, errors.As(err, &validErr))
-					require.Equal(t, tt.fieldName, validErr.FieldName)
-					require.Equal(t, tt.wantMsg, err.Error())
+				return
+			}
 
-					return
-				}
-
-				require.NoError(t, err)
-			})
-		}
+			require.True(t, v.Valid())
+		})
 	}
+}

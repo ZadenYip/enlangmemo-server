@@ -13,8 +13,9 @@ import (
 )
 
 type LoginRequest struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	Name            string `json:"name"`
+	Password        string `json:"password"`
+	valid.Validator `json:"-"`
 }
 
 type LoginResponse struct {
@@ -28,13 +29,11 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := valid.ValidMaxChars("name", req.Name, 16); err != nil {
-		valid.HandleValidationError(w, err)
-		return
-	}
-
-	if err := valid.ValidMaxChars("password", req.Password, 32); err != nil {
-		valid.HandleValidationError(w, err)
+	req.CheckField(valid.MaxChars(req.Name, 16), "name", "name must not be longer than 16 characters")
+	req.CheckField(valid.MaxChars(req.Password, 32), "password", "password must not be longer than 32 characters")
+	if !req.Valid() {
+		req.FailMsg = "Invalid login request"
+		valid.HandleValidationError(w, &req.Validator)
 		return
 	}
 
