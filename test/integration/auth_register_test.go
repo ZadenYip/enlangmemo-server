@@ -98,6 +98,17 @@ func TestRegisterNameTooLong(t *testing.T) {
 
 	require.Equal(t, "Invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
+
+	// 检查具体的 field violation
+	detail, ok := errResp.Error.Details[0].(map[string]any)
+	require.True(t, ok)
+	violations, ok := detail["fieldViolations"].([]any)
+	require.True(t, ok)
+	require.Len(t, violations, 1)
+	violation, ok := violations[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "name", violation["field"])
+	require.Equal(t, "name must not be longer than 16 characters", violation["description"])
 }
 
 func TestRegisterPasswordTooLong(t *testing.T) {

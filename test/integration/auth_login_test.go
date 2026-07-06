@@ -96,6 +96,18 @@ func TestLoginPasswordTooLong(t *testing.T) {
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
 	require.Equal(t, "Invalid login request", errResp.Error.Message)
+
+	// 检查具体的 field violation
+	require.Len(t, errResp.Error.Details, 1)
+	detail, ok := errResp.Error.Details[0].(map[string]any)
+	require.True(t, ok)
+	violations, ok := detail["fieldViolations"].([]any)
+	require.True(t, ok)
+	require.Len(t, violations, 1)
+	violation, ok := violations[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "password", violation["field"])
+	require.Equal(t, "password must not be longer than 32 characters", violation["description"])
 }
 
 func TestLoginUserNotFound(t *testing.T) {
