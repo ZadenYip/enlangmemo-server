@@ -11,6 +11,7 @@ import (
 )
 
 type Server struct {
+	log         Logger
 	authHandler *auth.AuthHandler
 }
 
@@ -19,12 +20,13 @@ type RouteRegistrar interface {
 	RegisterRoutes(mux *http.ServeMux)
 }
 
-func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
+func New(dbPool *pgxpool.Pool, rdb *redis.Client, logger Logger) *Server {
 	userStore := auth.NewPGUserStore(dbPool)
 	ssoStore := &sso.RedisSSOStore{Rdb: rdb}
 
 	return &Server{
-		authHandler: auth.NewAuthHandler(userStore, ssoStore),
+		log:         logger,
+		authHandler: auth.NewAuthHandler(userStore, ssoStore, logger.Error()),
 	}
 }
 
@@ -40,8 +42,8 @@ func (srv *Server) routes() http.Handler {
 
 func (srv *Server) GetHandler() http.Handler {
 	handler := srv.routes()
-	handler = middleware.Logging(handler)
-	handler = middleware.PanicRecovery(handler)
+	handler = middleware.Logging(handler, srv.log.Info())
+	handler = middleware.PanicRecovery(handler, srv.log.Error())
 
 	return handler
 }

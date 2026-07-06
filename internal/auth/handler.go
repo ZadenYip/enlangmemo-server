@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
@@ -9,12 +10,14 @@ import (
 type AuthHandler struct {
 	users    UserStore
 	sessions SessionStore
+	errLog   *slog.Logger
 }
 
-func NewAuthHandler(users UserStore, sessions SessionStore) *AuthHandler {
+func NewAuthHandler(users UserStore, sessions SessionStore, errLog *slog.Logger) *AuthHandler {
 	return &AuthHandler{
 		users:    users,
 		sessions: sessions,
+		errLog:   errLog,
 	}
 }
 

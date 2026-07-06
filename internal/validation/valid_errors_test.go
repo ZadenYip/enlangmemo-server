@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,7 +18,7 @@ func TestValidatorError(t *testing.T) {
 	v.FailMsg = "invalid request"
 	v.AddFieldError("name", "invalid name")
 
-	HandleValidationError(rr, v)
+	HandleValidationError(rr, v, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
@@ -29,7 +31,7 @@ func TestValidatorError(t *testing.T) {
 func TestUnexpectedError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	HandleValidationError(rr, nil)
+	HandleValidationError(rr, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))

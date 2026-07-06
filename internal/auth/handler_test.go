@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -136,7 +138,7 @@ func newLogoutRequest(sessionID string) *http.Request {
 }
 
 func newTestHandler(userStore *mockUserStore, ssoStore *mockSSOStore) *AuthHandler {
-	return NewAuthHandler(userStore, ssoStore)
+	return NewAuthHandler(userStore, ssoStore, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 // 测试登录用户不存在的情况

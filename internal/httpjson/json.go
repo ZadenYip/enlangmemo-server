@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -93,35 +93,37 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 }
 
 // 处理 JSON 解码错误
-func HandleJSONDecodeError(w http.ResponseWriter, err error) {
+func HandleJSONDecodeError(w http.ResponseWriter, err error, errLog *slog.Logger) {
 	var mr *malformedRequest
 	if errors.As(err, &mr) {
 		ResponseError(w,
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInvalidArgument).
-				WithMessage(mr.msg))
+				WithMessage(mr.msg),
+			errLog)
 		return
 	}
 
-	log.Printf("Unexpected error: %v", err)
+	errLog.Error("unexpected json decode error", "err", err)
 	ResponseError(w,
 		aip.NewErrResponse().
 			WithCodeAndStatus(aip.StatusInternal).
-			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())))
+			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())),
+		errLog)
 }
 
 // 处理验证错误
 // json 遵循 Google 的 AIP
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
-func ResponseError(w http.ResponseWriter, errResp *aip.ErrResponse) {
-	ResponseJSON(w, errResp.Error.Code, errResp)
+func ResponseError(w http.ResponseWriter, errResp *aip.ErrResponse, errLog *slog.Logger) {
+	ResponseJSON(w, errResp.Error.Code, errResp, errLog)
 }
 
 // 返回 JSON 响应
-func ResponseJSON(w http.ResponseWriter, httpStatus int, v any) {
+func ResponseJSON(w http.ResponseWriter, httpStatus int, v any, errLog *slog.Logger) {
 	js, err := json.Marshal(v)
 	if err != nil {
-		log.Printf("Failed to marshal JSON response: %v", err)
+		errLog.Error("failed to marshal json response", "err", err)
 
 		const status = http.StatusInternalServerError
 		w.Header().Set("Content-Type", "application/json")

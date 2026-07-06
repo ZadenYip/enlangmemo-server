@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"os"
 
 	"github.com/zadenyip/enlangmemo-server/internal/config"
 	"github.com/zadenyip/enlangmemo-server/internal/infra/pg"
@@ -11,14 +11,23 @@ import (
 )
 
 func main() {
+	logger := server.NewServerLog()
+	logger.Info().Info("starting server")
+
 	config := config.Load()
+
 	dbPool := pg.NewClient(config.DatabaseURL)
+	logger.Info().Info("connected to postgres")
 	defer dbPool.Close()
 
 	rdb := redisclient.NewClient(config.RedisURL)
+	logger.Info().Info("connected to redis")
 
-	server := server.New(dbPool, rdb)
+	server := server.New(dbPool, rdb, logger)
 	handler := server.GetHandler()
 
-	log.Fatal(http.ListenAndServe(":8080", handler))
+	if err := http.ListenAndServe(":8080", handler); err != nil {
+		logger.Error().Error("server stopped", "err", err)
+		os.Exit(1)
+	}
 }

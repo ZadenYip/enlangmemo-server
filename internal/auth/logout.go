@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
@@ -20,15 +19,16 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 			// 如果没有 cookie，仍然返回 200 OK，并清除 cookie
 			expiredCookie := sso.GenerateExpiredCookie()
 			http.SetCookie(w, &expiredCookie)
-			httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{})
+			httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.errLog)
 			return
 		}
 
-		log.Printf("Failed to read session cookie: %v", err)
+		h.errLog.Error("failed to read session cookie", "err", err)
 		httpjson.ResponseError(w,
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to read session cookie"))
+				WithMessage("Failed to read session cookie"),
+			h.errLog)
 		return
 	}
 
@@ -36,20 +36,21 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie.Value == "" {
 		expiredCookie := sso.GenerateExpiredCookie()
 		http.SetCookie(w, &expiredCookie)
-		httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{})
+		httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.errLog)
 		return
 	}
 
 	if err := h.sessions.Logout(r.Context(), cookie.Value); err != nil {
-		log.Printf("Failed to delete session: %v", err)
+		h.errLog.Error("failed to delete session", "err", err)
 		httpjson.ResponseError(w,
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to delete session"))
+				WithMessage("Failed to delete session"),
+			h.errLog)
 		return
 	}
 
 	expiredCookie := sso.GenerateExpiredCookie()
 	http.SetCookie(w, &expiredCookie)
-	httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{})
+	httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.errLog)
 }

@@ -25,7 +25,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	var reg RegisterRequest
 
 	if err := httpjson.DecodeJSONBody(w, r, &reg); err != nil {
-		httpjson.HandleJSONDecodeError(w, err)
+		httpjson.HandleJSONDecodeError(w, err, h.errLog)
 		return
 	}
 
@@ -33,7 +33,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	reg.CheckField(valid.MaxChars(reg.Password, 32), "password", "password must not be longer than 32 characters")
 	if !reg.Valid() {
 		reg.FailMsg = "Invalid register request"
-		valid.HandleValidationError(w, &reg.Validator)
+		valid.HandleValidationError(w, &reg.Validator, h.errLog)
 		return
 	}
 
@@ -42,7 +42,8 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		httpjson.ResponseError(w,
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to hash password"))
+				WithMessage("Failed to hash password"),
+			h.errLog)
 		return
 	}
 
@@ -52,16 +53,18 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 			httpjson.ResponseError(w,
 				aip.NewErrResponse().
 					WithCodeAndStatus(aip.StatusAlreadyExists).
-					WithMessage("User already exists"))
+					WithMessage("User already exists"),
+				h.errLog)
 			return
 		}
 
 		httpjson.ResponseError(w,
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to create user"))
+				WithMessage("Failed to create user"),
+			h.errLog)
 		return
 	}
 
-	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID})
+	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID}, h.errLog)
 }
