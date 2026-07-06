@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,18 +9,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidError(t *testing.T) {
+func TestValidatorError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	HandleValidationError(rr, &ValidError{
-		FieldName: "name",
-		Msg:       "invalid name",
-	})
+	v := NewValidator()
+	v.FailMsg = "invalid request"
+	v.AddFieldError("name", "invalid name")
+
+	HandleValidationError(rr, v)
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 	require.Equal(t,
-		`{"error":{"code":400,"message":"invalid name","status":"INVALID_ARGUMENT","details":[]}}`,
+		`{"error":{"code":400,"message":"invalid request","status":"INVALID_ARGUMENT","details":[{"fieldViolations":[{"field":"name","description":"invalid name"}]}]}}`,
 		strings.TrimSpace(rr.Body.String()),
 	)
 }
@@ -29,7 +29,7 @@ func TestValidError(t *testing.T) {
 func TestUnexpectedError(t *testing.T) {
 	rr := httptest.NewRecorder()
 
-	HandleValidationError(rr, errors.New("boom"))
+	HandleValidationError(rr, nil)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))

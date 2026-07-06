@@ -96,9 +96,8 @@ func TestRegisterNameTooLong(t *testing.T) {
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
 
-	// validation.go
-	// fmt.Sprintf("%s must not be longer than %d characters", fieldName, maxLen)
-	require.Equal(t, "name must not be longer than 16 characters", errResp.Error.Message)
+	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
 }
 
 func TestRegisterPasswordTooLong(t *testing.T) {
@@ -117,9 +116,8 @@ func TestRegisterPasswordTooLong(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	// validation.go
-	// fmt.Sprintf("%s must not be longer than %d characters", fieldName, maxLen)
-	require.Equal(t, "password must not be longer than 32 characters", errResp.Error.Message)
+	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
 }
 
 func TestRegisterUserAlreadyExists(t *testing.T) {

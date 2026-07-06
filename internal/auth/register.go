@@ -11,8 +11,9 @@ import (
 )
 
 type RegisterRequest struct {
-	Name     string `json:"name"`
-	Password string `json:"password"`
+	valid.Validator `json:"-"`
+	Name            string `json:"name"`
+	Password        string `json:"password"`
 }
 
 type RegisterResponse struct {
@@ -28,13 +29,11 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := valid.ValidMaxChars("name", reg.Name, 16); err != nil {
-		valid.HandleValidationError(w, err)
-		return
-	}
-
-	if err := valid.ValidMaxChars("password", reg.Password, 32); err != nil {
-		valid.HandleValidationError(w, err)
+	reg.CheckField(valid.MaxChars(reg.Name, 16), "name", "name must not be longer than 16 characters")
+	reg.CheckField(valid.MaxChars(reg.Password, 32), "password", "password must not be longer than 32 characters")
+	if !reg.Valid() {
+		reg.FailMsg = "Invalid register request"
+		valid.HandleValidationError(w, &reg.Validator)
 		return
 	}
 

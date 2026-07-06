@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"errors"
 	"log"
 	"net/http"
 
@@ -9,19 +8,21 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 )
 
-func HandleValidationError(w http.ResponseWriter, err error) {
-	var validErr *ValidError
-	if errors.As(err, &validErr) {
+func HandleValidationError(w http.ResponseWriter, validator *Validator) {
+	if validator == nil {
+		log.Printf("Unexpected validation error")
 		httpjson.ResponseError(w,
 			aip.NewErrResponse().
-				WithCodeAndStatus(aip.StatusInvalidArgument).
-				WithMessage(validErr.Msg))
+				WithCodeAndStatus(aip.StatusInternal).
+				WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())),
+		)
 		return
 	}
 
-	log.Printf("Unexpected error: %v", err)
 	httpjson.ResponseError(w,
 		aip.NewErrResponse().
-			WithCodeAndStatus(aip.StatusInternal).
-			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())))
+			WithCodeAndStatus(aip.StatusInvalidArgument).
+			WithMessage(validator.FailMsg).
+			WithBadRequestDetail(validator.Detail()),
+	)
 }
