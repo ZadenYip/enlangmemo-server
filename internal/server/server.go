@@ -21,7 +21,7 @@ type RouteRegistrar interface {
 
 func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
 	userStore := auth.NewPGUserStore(dbPool)
-	ssoStore := &sso.RedisSSOStore{Rds: rdb}
+	ssoStore := &sso.RedisSSOStore{Rdb: rdb}
 
 	return &Server{
 		authHandler: auth.NewAuthHandler(userStore, ssoStore),

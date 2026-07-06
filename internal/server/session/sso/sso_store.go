@@ -28,7 +28,7 @@ const (
 )
 
 type RedisSSOStore struct {
-	Rds *redis.Client
+	Rdb *redis.Client
 }
 
 func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, error) {
@@ -39,7 +39,7 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 		}
 
 		key := ssoKeyPrefix + sessionID
-		ok, err := store.Rds.SetNX(ctx, key, userID, sessionTimeoutDuration).Result()
+		ok, err := store.Rdb.SetNX(ctx, key, userID, sessionTimeoutDuration).Result()
 		if err != nil {
 			return "", err
 		}
@@ -51,14 +51,14 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 	return "", ErrSessionIDCollision
 }
 
-func (store *RedisSSOStore) Logout(ctx context.Context, sessionID string) error {
-	return store.Rds.Del(ctx, ssoKeyPrefix+sessionID).Err()
+func (s *RedisSSOStore) Logout(ctx context.Context, sessionID string) error {
+	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Err()
 }
 
-func (store *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
-	return store.Rds.Get(ctx, ssoKeyPrefix+sessionID).Result()
+func (s *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
+	return s.Rdb.Get(ctx, ssoKeyPrefix+sessionID).Result()
 }
 
-func (store *RedisSSOStore) Delete(ctx context.Context, sessionID string) error {
-	return store.Rds.Del(ctx, ssoKeyPrefix+sessionID).Err()
+func (s *RedisSSOStore) Delete(ctx context.Context, sessionID string) error {
+	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Err()
 }
