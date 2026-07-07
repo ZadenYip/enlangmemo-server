@@ -15,14 +15,19 @@ type Server struct {
 	authHandler *auth.AuthHandler
 }
 
+type StoreDeps struct {
+	PGPool *pgxpool.Pool
+	Rdb    *redis.Client
+}
+
 // 注册路由标签函数
 type RouteRegistrar interface {
 	RegisterRoutes(mux *http.ServeMux)
 }
 
-func New(dbPool *pgxpool.Pool, rdb *redis.Client, logger Logger) *Server {
-	userStore := auth.NewPGUserStore(dbPool)
-	ssoStore := &sso.RedisSSOStore{Rdb: rdb}
+func New(storeDeps StoreDeps, logger Logger) *Server {
+	userStore := auth.NewPGUserStore(storeDeps.PGPool)
+	ssoStore := &sso.RedisSSOStore{Rdb: storeDeps.Rdb}
 
 	return &Server{
 		log:         logger,

@@ -56,7 +56,12 @@ func startHTTPServer() {
 		testServer.Close()
 	}
 
-	srv := server.New(env.dbPool, env.rdsClient, server.NewServerLog())
+	storeDeps := server.StoreDeps{
+		PGPool: env.dbPool,
+		Rdb:    env.rdsClient,
+	}
+
+	srv := server.New(storeDeps, server.NewServerLog())
 	testServer = httptest.NewServer(srv.GetHandler())
 
 	testClient = testServer.Client()

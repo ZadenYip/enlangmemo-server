@@ -23,7 +23,12 @@ func main() {
 	rdb := redisclient.NewClient(config.RedisURL)
 	logger.Info().Info("connected to redis")
 
-	server := server.New(dbPool, rdb, logger)
+	storeDeps := server.StoreDeps{
+		PGPool: dbPool,
+		Rdb:    rdb,
+	}
+
+	server := server.New(storeDeps, logger)
 	handler := server.GetHandler()
 
 	if err := http.ListenAndServe(":8080", handler); err != nil {

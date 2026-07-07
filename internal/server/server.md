@@ -55,17 +55,23 @@ type Server struct {
 }
 ```
 
-在 `New` 中创建依赖和 handler：
+在 `New` 中创建依赖和 handler。多个 store 都依赖 Postgres / Redis 时，先把基础设施客户端打包成 store 依赖结构，避免构造函数参数继续膨胀：
 
 ```go
-func New(dbPool *pgxpool.Pool, rdb *redis.Client) *Server {
-	userStore := auth.NewPGUserStore(dbPool)
-	ssoStore := &sso.RedisSSOStore{Rds: rdb}
+type StoreDeps struct {
+	PGPool *pgxpool.Pool
+	Rdb    *redis.Client
+}
 
-	xxxStore := xxx.NewPGXxxStore(dbPool)
+func New(storeDeps StoreDeps, logger Logger) *Server {
+	userStore := auth.NewPGUserStore(storeDeps.PGPool)
+	ssoStore := &sso.RedisSSOStore{Rdb: storeDeps.Rdb}
+
+	xxxStore := xxx.NewPGXxxStore(storeDeps.PGPool)
 
 	return &Server{
-		authHandler: auth.NewAuthHandler(userStore, ssoStore),
+		log:         logger,
+		authHandler: auth.NewAuthHandler(userStore, ssoStore, logger.Error()),
 		xxxHandler:  xxx.NewXxxHandler(xxxStore),
 	}
 }
