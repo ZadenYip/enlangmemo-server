@@ -6,12 +6,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/auth"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 type Server struct {
-	log         Logger
+	log         logging.Logger
 	authHandler *auth.AuthHandler
 }
 
@@ -25,13 +26,13 @@ type RouteRegistrar interface {
 	RegisterRoutes(mux *http.ServeMux)
 }
 
-func New(storeDeps StoreDeps, logger Logger) *Server {
+func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 	userStore := auth.NewPGUserStore(storeDeps.PGPool)
 	ssoStore := &sso.RedisSSOStore{Rdb: storeDeps.Rdb}
 
 	return &Server{
 		log:         logger,
-		authHandler: auth.NewAuthHandler(userStore, ssoStore, logger.Error()),
+		authHandler: auth.NewAuthHandler(userStore, ssoStore, logger),
 	}
 }
 
@@ -47,8 +48,9 @@ func (srv *Server) routes() http.Handler {
 
 func (srv *Server) GetHandler() http.Handler {
 	handler := srv.routes()
-	handler = middleware.Logging(handler, srv.log.Info())
-	handler = middleware.PanicRecovery(handler, srv.log.Error())
+	handler = middleware.Logging(handler, srv.log)
+	handler = middleware.PanicRecovery(handler, srv.log)
+	handler = middleware.Trace(handler, srv.log)
 
 	return handler
 }

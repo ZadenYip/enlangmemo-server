@@ -138,7 +138,33 @@ func newLogoutRequest(sessionID string) *http.Request {
 }
 
 func newTestHandler(userStore *mockUserStore, ssoStore *mockSSOStore) *AuthHandler {
-	return NewAuthHandler(userStore, ssoStore, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return NewAuthHandler(userStore, ssoStore, discardLogger{
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+}
+
+type discardLogger struct {
+	logger *slog.Logger
+}
+
+func (l discardLogger) Info() *slog.Logger {
+	return l.logger
+}
+
+func (l discardLogger) Error() *slog.Logger {
+	return l.logger
+}
+
+func (l discardLogger) InfoCtx(ctx context.Context, msg string, args ...any) {
+	l.logger.InfoContext(ctx, msg, args...)
+}
+
+func (l discardLogger) WarnCtx(ctx context.Context, msg string, args ...any) {
+	l.logger.WarnContext(ctx, msg, args...)
+}
+
+func (l discardLogger) ErrorCtx(ctx context.Context, msg string, args ...any) {
+	l.logger.ErrorContext(ctx, msg, args...)
 }
 
 // 测试登录用户不存在的情况

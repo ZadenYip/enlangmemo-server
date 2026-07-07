@@ -130,8 +130,9 @@ func ResponseJSON(w http.ResponseWriter, httpStatus int, v any, errLog *slog.Log
 		w.WriteHeader(status)
 
 		const internalErrJS = `{"error":{"code":500,"message":"Internal Server Error","status":"INTERNAL"}}`
-		_, _ = w.Write([]byte(internalErrJS))
+		_, err = w.Write([]byte(internalErrJS))
 
+		errLog.Error("failed to write internal error json response", "err", err)
 		return
 	}
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server"
 )
 
@@ -61,7 +62,7 @@ func startHTTPServer() {
 		Rdb:    env.rdsClient,
 	}
 
-	srv := server.New(storeDeps, server.NewServerLog())
+	srv := server.New(storeDeps, logging.NewServerLog())
 	testServer = httptest.NewServer(srv.GetHandler())
 
 	testClient = testServer.Client()

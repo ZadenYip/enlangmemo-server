@@ -2,39 +2,32 @@ package middleware
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
 const TraceHeader = "traceparent"
 
-type TraceKey struct{}
-
-func Trace(next http.Handler, errLog *slog.Logger) http.Handler {
+func Trace(next http.Handler, logger logging.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace := r.Header.Get(TraceHeader)
 		if trace == "" {
-			errLog.ErrorContext(r.Context(), "traceparent header is missing in request", "url", r.URL.String())
+			logger.Error().ErrorContext(r.Context(), "traceparent header is missing in request", "url", r.URL.String())
 			httpjson.ResponseError(
 				w,
 				aip.NewErrResponse().
 					WithCodeAndStatus(aip.StatusInternal).
 					WithMessage("Nginx generated traceparent header is missing in request"),
-				errLog,
+				logger.Error(),
 			)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), TraceKey{}, trace)
+		ctx := context.WithValue(r.Context(), logging.TraceKey{}, trace)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
-}
-
-func TraceIDFromCtx(ctx context.Context) (string, bool) {
-	traceID, ok := ctx.Value(TraceKey{}).(string)
-	return traceID, ok
 }

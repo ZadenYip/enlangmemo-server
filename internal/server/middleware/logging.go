@@ -1,27 +1,26 @@
 package middleware
 
 import (
-	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
-func Logging(next http.Handler, infoLog *slog.Logger) http.Handler {
+func Logging(next http.Handler, logger logging.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		infoLog.Info("request started",
+		logger.InfoCtx(r.Context(), "request started",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"remote_addr", r.RemoteAddr,
-			"traceparent", r.Header.Get(TraceHeader),
 		)
 		next.ServeHTTP(w, r)
-		infoLog.Info("request completed",
+		logger.InfoCtx(r.Context(), "request completed",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"remote_addr", r.RemoteAddr,
 			"duration", time.Since(start),
-			"traceparent", r.Header.Get(TraceHeader),
 		)
 	})
 }

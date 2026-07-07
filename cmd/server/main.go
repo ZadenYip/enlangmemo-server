@@ -7,11 +7,12 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/config"
 	"github.com/zadenyip/enlangmemo-server/internal/infra/pg"
 	"github.com/zadenyip/enlangmemo-server/internal/infra/redisclient"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server"
 )
 
 func main() {
-	logger := server.NewServerLog()
+	logger := logging.NewServerLog()
 	logger.Info().Info("starting server")
 
 	config := config.Load()

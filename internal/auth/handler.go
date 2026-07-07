@@ -1,23 +1,23 @@
 package auth
 
 import (
-	"log/slog"
 	"net/http"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
 type AuthHandler struct {
 	users    UserStore
 	sessions SessionStore
-	errLog   *slog.Logger
+	log      logging.Logger
 }
 
-func NewAuthHandler(users UserStore, sessions SessionStore, errLog *slog.Logger) *AuthHandler {
+func NewAuthHandler(users UserStore, sessions SessionStore, log logging.Logger) *AuthHandler {
 	return &AuthHandler{
 		users:    users,
 		sessions: sessions,
-		errLog:   errLog,
+		log:      log,
 	}
 }
 

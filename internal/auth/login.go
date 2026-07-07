@@ -24,7 +24,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := httpjson.DecodeJSONBody(w, r, &req); err != nil {
-		httpjson.HandleJSONDecodeError(w, err, h.errLog)
+		httpjson.HandleJSONDecodeError(w, err, h.log.Error())
 		return
 	}
 
@@ -32,7 +32,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	req.CheckField(valid.MaxChars(req.Password, 32), "password", "password must not be longer than 32 characters")
 	if !req.Valid() {
 		req.FailMsg = "Invalid login request"
-		valid.HandleValidationError(w, &req.Validator, h.errLog)
+		valid.HandleValidationError(w, &req.Validator, h.log.Error())
 		return
 	}
 
@@ -43,10 +43,10 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 				aip.NewErrResponse().
 					WithCodeAndStatus(aip.StatusNotFound).
 					WithMessage("User not found"),
-				h.errLog)
+				h.log.Error())
 			return
 		} else {
-			h.errLog.Error("failed to get password hash",
+			h.log.ErrorCtx(r.Context(), "failed to get password hash",
 				"user", req.Name,
 				"err", err,
 			)
@@ -54,14 +54,14 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 				aip.NewErrResponse().
 					WithCodeAndStatus(aip.StatusInternal).
 					WithMessage("Failed to get password hash"),
-				h.errLog)
+				h.log.Error())
 			return
 		}
 	}
 
 	match, err := argon2id.ComparePasswordAndHash(req.Password, actualHash)
 	if err != nil {
-		h.errLog.Error("failed to compare password and hash",
+		h.log.ErrorCtx(r.Context(), "failed to compare password and hash",
 			"user", req.Name,
 			"err", err,
 		)
@@ -69,7 +69,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
 				WithMessage("Failed to compare password and hash"),
-			h.errLog)
+			h.log.Error())
 		return
 	}
 
@@ -78,13 +78,13 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusUnauthenticated).
 				WithMessage("Invalid password"),
-			h.errLog)
+			h.log.Error())
 		return
 	}
 
 	sessionID, err := h.sessions.Create(r.Context(), userID)
 	if err != nil {
-		h.errLog.Error("failed to create session",
+		h.log.ErrorCtx(r.Context(), "failed to create session",
 			"user", req.Name,
 			"err", err,
 		)
@@ -92,11 +92,11 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 			aip.NewErrResponse().
 				WithCodeAndStatus(aip.StatusInternal).
 				WithMessage("Failed to create session"),
-			h.errLog)
+			h.log.Error())
 		return
 	}
 
 	ssoCookie := sso.GenerateCookie(sessionID)
 	http.SetCookie(w, &ssoCookie)
-	httpjson.ResponseJSON(w, http.StatusOK, LoginResponse{}, h.errLog)
+	httpjson.ResponseJSON(w, http.StatusOK, LoginResponse{}, h.log.Error())
 }
