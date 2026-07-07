@@ -13,6 +13,7 @@ func Logging(next http.Handler, infoLog *slog.Logger) http.Handler {
 			"method", r.Method,
 			"path", r.URL.Path,
 			"remote_addr", r.RemoteAddr,
+			"traceparent", r.Header.Get(TraceHeader),
 		)
 		next.ServeHTTP(w, r)
 		infoLog.Info("request completed",
@@ -20,6 +21,7 @@ func Logging(next http.Handler, infoLog *slog.Logger) http.Handler {
 			"path", r.URL.Path,
 			"remote_addr", r.RemoteAddr,
 			"duration", time.Since(start),
+			"traceparent", r.Header.Get(TraceHeader),
 		)
 	})
 }

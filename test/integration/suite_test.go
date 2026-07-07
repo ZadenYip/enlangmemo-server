@@ -58,5 +58,18 @@ func startHTTPServer() {
 
 	srv := server.New(env.dbPool, env.rdsClient, server.NewServerLog())
 	testServer = httptest.NewServer(srv.GetHandler())
+
 	testClient = testServer.Client()
+	// 添加 tracepoint header 到测试客户端的请求中
+	testClient.Transport = &traceparentTransport{base: testClient.Transport}
+}
+
+type traceparentTransport struct {
+	base http.RoundTripper
+}
+
+func (t *traceparentTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// 在请求中添加 traceparent header
+	req.Header.Set("traceparent", "integration-test")
+	return t.base.RoundTrip(req)
 }
