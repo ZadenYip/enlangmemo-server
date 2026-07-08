@@ -6,8 +6,8 @@ import (
 )
 
 type UserStore interface {
-	CreateUser(ctx context.Context, name string, passwordHash string) (string, error)
-	GetPasswordHash(ctx context.Context, name string) (string, string, error)
+	CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error)
+	GetPasswordHash(ctx context.Context, loginID string) (string, string, error)
 }
 
 type SessionStore interface {

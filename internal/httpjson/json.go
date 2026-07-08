@@ -96,20 +96,12 @@ func DecodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
 func HandleJSONDecodeError(w http.ResponseWriter, err error, errLog *slog.Logger) {
 	var mr *malformedRequest
 	if errors.As(err, &mr) {
-		ResponseError(w,
-			aip.NewErrResponse().
-				WithCodeAndStatus(aip.StatusInvalidArgument).
-				WithMessage(mr.msg),
-			errLog)
+		ResponseStatusError(w, aip.StatusInvalidArgument, mr.msg, errLog)
 		return
 	}
 
 	errLog.Error("unexpected json decode error", "err", err)
-	ResponseError(w,
-		aip.NewErrResponse().
-			WithCodeAndStatus(aip.StatusInternal).
-			WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())),
-		errLog)
+	ResponseStatusError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()), errLog)
 }
 
 // 处理验证错误
@@ -117,6 +109,15 @@ func HandleJSONDecodeError(w http.ResponseWriter, err error, errLog *slog.Logger
 // status - 参考 https://cloud.google.com/apis/design/errors#error_responses 中的 status 字段
 func ResponseError(w http.ResponseWriter, errResp *aip.ErrResponse, errLog *slog.Logger) {
 	ResponseJSON(w, errResp.Error.Code, errResp, errLog)
+}
+
+func ResponseStatusError(w http.ResponseWriter, status aip.ErrorStatus, message string, errLog *slog.Logger) {
+	ResponseError(w,
+		aip.NewErrResponse().
+			WithCodeAndStatus(status).
+			WithMessage(message),
+		errLog,
+	)
 }
 
 // 返回 JSON 响应

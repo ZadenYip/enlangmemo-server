@@ -11,12 +11,7 @@ import (
 func HandleValidationError(w http.ResponseWriter, validator *Validator, errLog *slog.Logger) {
 	if validator == nil {
 		errLog.Error("unexpected validation error")
-		httpjson.ResponseError(w,
-			aip.NewErrResponse().
-				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage(http.StatusText(aip.StatusInternal.HTTPCode())),
-			errLog,
-		)
+		httpjson.ResponseStatusError(w, aip.StatusInternal, http.StatusText(aip.StatusInternal.HTTPCode()), errLog)
 		return
 	}
 

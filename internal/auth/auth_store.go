@@ -18,14 +18,14 @@ func NewPGUserStore(dbPool *pgxpool.Pool) *PGUserStore {
 	return &PGUserStore{dbPool: dbPool}
 }
 
-func (store *PGUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (string, error) {
+func (store *PGUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
 	const insertUser = `
-		INSERT INTO users (name, password_hash) VALUES ($1, $2)
+		INSERT INTO users (login_id, nickname, password_hash) VALUES ($1, $2, $3)
 		RETURNING id
 	`
 
 	var userID pgtype.UUID
-	err := store.dbPool.QueryRow(ctx, insertUser, name, passwordHash).Scan(&userID)
+	err := store.dbPool.QueryRow(ctx, insertUser, loginID, nickname, passwordHash).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		// unique_violation 23505: see https://www.postgresql.org/docs/current/errcodes-appendix.html
@@ -40,14 +40,14 @@ func (store *PGUserStore) CreateUser(ctx context.Context, name string, passwordH
 	return userID.String(), nil
 }
 
-func (store *PGUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
+func (store *PGUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
 	const selectUser = `
-		SELECT id, password_hash FROM users WHERE name = $1
+		SELECT id, password_hash FROM users WHERE login_id = $1
 	`
 
 	var userID pgtype.UUID
 	var storedPasswordHash string
-	err := store.dbPool.QueryRow(ctx, selectUser, name).Scan(&userID, &storedPasswordHash)
+	err := store.dbPool.QueryRow(ctx, selectUser, loginID).Scan(&userID, &storedPasswordHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", ErrUserNotFound
 	}

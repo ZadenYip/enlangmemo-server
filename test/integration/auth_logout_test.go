@@ -41,7 +41,7 @@ func loginForLogout(t *testing.T) *http.Cookie {
 
 	registerUserForLogin(t, "testuser", "testpassword")
 	body := auth.LoginRequest{
-		Name:     "testuser",
+		LoginID:  "testuser",
 		Password: "testpassword",
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))

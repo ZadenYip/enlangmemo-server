@@ -12,7 +12,8 @@ import (
 
 type RegisterRequest struct {
 	valid.Validator `json:"-"`
-	Name            string `json:"name"`
+	LoginID         string `json:"loginId"`
+	Nickname        string `json:"nickname"`
 	Password        string `json:"password"`
 }
 
@@ -29,7 +30,12 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reg.CheckField(valid.MaxChars(reg.Name, 16), "name", "name must not be longer than 16 characters")
+	reg.CheckField(valid.NotBlank(reg.LoginID), "loginId", "loginId must not be blank")
+	reg.CheckField(valid.MaxChars(reg.LoginID, 16), "loginId", "loginId must not be longer than 16 characters")
+	reg.CheckField(valid.ASCIIAlnum(reg.LoginID), "loginId", "loginId must contain only English letters and digits")
+	reg.CheckField(valid.NotBlank(reg.Nickname), "nickname", "nickname must not be blank")
+	reg.CheckField(valid.MaxChars(reg.Nickname, 16), "nickname", "nickname must not be longer than 16 characters")
+	reg.CheckField(valid.MinChars(reg.Password, 8), "password", "password must be at least 8 characters")
 	reg.CheckField(valid.MaxChars(reg.Password, 32), "password", "password must not be longer than 32 characters")
 	if !reg.Valid() {
 		reg.FailMsg = "Invalid register request"
@@ -39,30 +45,18 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
-		httpjson.ResponseError(w,
-			aip.NewErrResponse().
-				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to hash password"),
-			h.log.Error())
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to hash password", h.log.Error())
 		return
 	}
 
-	userID, err := h.users.CreateUser(r.Context(), reg.Name, passwdHash)
+	userID, err := h.users.CreateUser(r.Context(), reg.LoginID, reg.Nickname, passwdHash)
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
-			httpjson.ResponseError(w,
-				aip.NewErrResponse().
-					WithCodeAndStatus(aip.StatusAlreadyExists).
-					WithMessage("User already exists"),
-				h.log.Error())
+			httpjson.ResponseStatusError(w, aip.StatusAlreadyExists, "User already exists", h.log.Error())
 			return
 		}
 
-		httpjson.ResponseError(w,
-			aip.NewErrResponse().
-				WithCodeAndStatus(aip.StatusInternal).
-				WithMessage("Failed to create user"),
-			h.log.Error())
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to create user", h.log.Error())
 		return
 	}
 

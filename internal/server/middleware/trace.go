@@ -16,11 +16,10 @@ func Trace(next http.Handler, logger logging.Logger) http.Handler {
 		trace := r.Header.Get(TraceHeader)
 		if trace == "" {
 			logger.Error().ErrorContext(r.Context(), "traceparent header is missing in request", "url", r.URL.String())
-			httpjson.ResponseError(
+			httpjson.ResponseStatusError(
 				w,
-				aip.NewErrResponse().
-					WithCodeAndStatus(aip.StatusInternal).
-					WithMessage("Nginx generated traceparent header is missing in request"),
+				aip.StatusInternal,
+				"Nginx generated traceparent header is missing in request",
 				logger.Error(),
 			)
 			return

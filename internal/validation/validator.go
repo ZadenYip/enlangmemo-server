@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
@@ -45,6 +47,31 @@ func (v *Validator) Valid() bool {
 // 如果 value 包含不超过 maxLen 个字符，则 MaxChars() 返回 true。
 func MaxChars(value string, maxLen int) bool {
 	return utf8.RuneCountInString(value) <= maxLen
+}
+
+// MinChars returns true when value contains at least minLen characters.
+func MinChars(value string, minLen int) bool {
+	return utf8.RuneCountInString(value) >= minLen
+}
+
+// NotBlank returns true when value contains at least one non-whitespace character.
+func NotBlank(value string) bool {
+	return strings.TrimSpace(value) != ""
+}
+
+// ASCIIAlnum returns true when value contains only English letters and digits.
+func ASCIIAlnum(value string) bool {
+	if value == "" {
+		return false
+	}
+
+	for _, r := range value {
+		if r > unicode.MaxASCII || (!unicode.IsLetter(r) && !unicode.IsDigit(r)) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (v *Validator) Detail() *aip.BadRequest {

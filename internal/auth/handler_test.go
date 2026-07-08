@@ -19,13 +19,13 @@ type mockUserStore struct {
 	mock.Mock
 }
 
-func (store *mockUserStore) CreateUser(ctx context.Context, name string, passwordHash string) (string, error) {
-	args := store.Called(ctx, name, passwordHash)
+func (store *mockUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
+	args := store.Called(ctx, loginID, nickname, passwordHash)
 	return args.String(0), args.Error(1)
 }
 
-func (store *mockUserStore) GetPasswordHash(ctx context.Context, name string) (string, string, error) {
-	args := store.Called(ctx, name)
+func (store *mockUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
+	args := store.Called(ctx, loginID)
 	return args.String(0), args.String(1), args.Error(2)
 }
 
@@ -48,7 +48,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.register(rr, newRegisterRequest(`{"name":"abcdefghijklmnopq","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"loginId":"abcdefghijklmnopq","nickname":"Alice","password":"password"}`))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -57,12 +57,12 @@ func TestRegisterNameTooLong(t *testing.T) {
 // 测试用户已经存在的情况
 func TestRegisterUserAlreadyExists(t *testing.T) {
 	userStore := new(mockUserStore)
-	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
+	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
 		Return("", ErrUserAlreadyExists)
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"loginId":"alice","nickname":"Alice","password":"password"}`))
 
 	require.Equal(t, http.StatusConflict, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -71,12 +71,12 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 // 测试如果内部 userStore 报错是否返回 500 错误（StatusInternalServerError）
 func TestRegisterStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
-	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
+	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
 		Return("", errors.New("store error"))
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"loginId":"alice","nickname":"Alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -85,12 +85,12 @@ func TestRegisterStoreError(t *testing.T) {
 // 测试正常注册
 func TestRegisterSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
-	userStore.On("CreateUser", mock.Anything, "alice", passwordHashMatcher("password")).
+	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
 		Return("user-id", nil)
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
-	handler.register(rr, newRegisterRequest(`{"name":"alice","password":"password"}`))
+	handler.register(rr, newRegisterRequest(`{"loginId":"alice","nickname":"Alice","password":"password"}`))
 
 	require.Equal(t, http.StatusCreated, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
@@ -176,7 +176,7 @@ func TestLoginUserNotFound(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"loginId":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusNotFound, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -270,7 +270,7 @@ func TestLoginStoreError(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"loginId":"alice","password":"password"}`))
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -289,7 +289,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.login(rr, newLoginRequest(`{"name":"alice","password":"wrong-password"}`))
+	handler.login(rr, newLoginRequest(`{"loginId":"alice","password":"wrong-password"}`))
 
 	require.Equal(t, http.StatusUnauthorized, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
@@ -310,7 +310,7 @@ func TestLoginSuccess(t *testing.T) {
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
-	handler.login(rr, newLoginRequest(`{"name":"alice","password":"password"}`))
+	handler.login(rr, newLoginRequest(`{"loginId":"alice","password":"password"}`))
 
 	cookies := rr.Result().Cookies()
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())

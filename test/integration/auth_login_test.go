@@ -47,11 +47,12 @@ func marshalLoginRequest(t *testing.T, body auth.LoginRequest) []byte {
 	return jsonBody
 }
 
-func registerUserForLogin(t *testing.T, name string, password string) {
+func registerUserForLogin(t *testing.T, loginID string, password string) {
 	t.Helper()
 
 	body := auth.RegisterRequest{
-		Name:     name,
+		LoginID:  loginID,
+		Nickname: "测试用户",
 		Password: password,
 	}
 	resp := doRegister(t, marshalRegisterRequest(t, body))
@@ -63,7 +64,7 @@ func TestLoginSuccess(t *testing.T) {
 	registerUserForLogin(t, "testuser", "testpassword")
 
 	body := auth.LoginRequest{
-		Name:     "testuser",
+		LoginID:  "testuser",
 		Password: "testpassword",
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
@@ -83,7 +84,7 @@ func TestLoginPasswordTooLong(t *testing.T) {
 	resetEnv(t)
 
 	body := auth.LoginRequest{
-		Name: "testuser",
+		LoginID: "testuser",
 		// 33 字符
 		Password: "abcdefghijklmnopqrstuvwxyzabcdefg",
 	}
@@ -110,11 +111,65 @@ func TestLoginPasswordTooLong(t *testing.T) {
 	require.Equal(t, "password must not be longer than 32 characters", violation["description"])
 }
 
+func TestLoginLoginIDBlank(t *testing.T) {
+	resetEnv(t)
+
+	body := auth.LoginRequest{
+		LoginID:  "",
+		Password: "testpassword",
+	}
+	resp := doLogin(t, marshalLoginRequest(t, body))
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var errResp httpjson.ErrResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
+
+	detail, ok := errResp.Error.Details[0].(map[string]any)
+	require.True(t, ok)
+	violations, ok := detail["fieldViolations"].([]any)
+	require.True(t, ok)
+	require.Len(t, violations, 1)
+	violation, ok := violations[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "loginId", violation["field"])
+	require.Equal(t, "loginId must not be blank", violation["description"])
+}
+
+func TestLoginPasswordTooShort(t *testing.T) {
+	resetEnv(t)
+
+	body := auth.LoginRequest{
+		LoginID:  "testuser",
+		Password: "short",
+	}
+	resp := doLogin(t, marshalLoginRequest(t, body))
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var errResp httpjson.ErrResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
+
+	detail, ok := errResp.Error.Details[0].(map[string]any)
+	require.True(t, ok)
+	violations, ok := detail["fieldViolations"].([]any)
+	require.True(t, ok)
+	require.Len(t, violations, 1)
+	violation, ok := violations[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "password", violation["field"])
+	require.Equal(t, "password must be at least 8 characters", violation["description"])
+}
+
 func TestLoginUserNotFound(t *testing.T) {
 	resetEnv(t)
 
 	body := auth.LoginRequest{
-		Name:     "missinguser",
+		LoginID:  "missinguser",
 		Password: "testpassword",
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
@@ -133,7 +188,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	registerUserForLogin(t, "testuser", "testpassword")
 
 	body := auth.LoginRequest{
-		Name:     "testuser",
+		LoginID:  "testuser",
 		Password: "wrongpassword",
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
