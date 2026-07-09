@@ -8,7 +8,7 @@ import (
 
 type OAStorer interface {
 	// 获取 OAuth 客户端信息
-	GetClientInfo(clientID string) (*OAClientInfo, error)
+	// GetClientInfo(clientID string) (*OAClientInfo, error)
 }
 
 type OAStore struct {
