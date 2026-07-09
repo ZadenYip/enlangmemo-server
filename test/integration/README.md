@@ -5,7 +5,7 @@
 ## 文件结构
 
 - `suite_test.go`：集成测试的总入口/启动处。
-- `env.go`：Testcontainers 的一些配置，设计 PG 和 Redis。
+- `env_test.go`：Testcontainers 的一些配置，设计 PG 和 Redis。
 - `*_test.go`：具体场景对应的集成测试。
 
 ## 运行方式
