@@ -36,7 +36,7 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.sessions.Logout(r.Context(), cookie.Value); err != nil {
+	if err := h.sso.Logout(r.Context(), cookie.Value); err != nil {
 		h.log.ErrorCtx(r.Context(), "failed to delete session", "err", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to delete session", h.log.Error())
 		return

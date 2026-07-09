@@ -69,7 +69,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := h.sessions.Create(r.Context(), userID)
+	sessionID, err := h.sso.Create(r.Context(), userID)
 	if err != nil {
 		h.log.ErrorCtx(r.Context(), "failed to create session",
 			"loginId", req.LoginID,

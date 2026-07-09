@@ -8,16 +8,16 @@ import (
 )
 
 type AuthHandler struct {
-	users    UserStore
-	sessions SessionStore
-	log      logging.Logger
+	users UserStore
+	sso   SSOStore
+	log   logging.Logger
 }
 
-func NewAuthHandler(users UserStore, sessions SessionStore, log logging.Logger) *AuthHandler {
+func NewAuthHandler(users UserStore, sso SSOStore, log logging.Logger) *AuthHandler {
 	return &AuthHandler{
-		users:    users,
-		sessions: sessions,
-		log:      log,
+		users: users,
+		sso:   sso,
+		log:   log,
 	}
 }
 
