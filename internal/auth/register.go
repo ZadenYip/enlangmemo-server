@@ -36,7 +36,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	reg.CheckField(valid.NotBlank(reg.Nickname), "nickname", "nickname must not be blank")
 	reg.CheckField(valid.MaxChars(reg.Nickname, 16), "nickname", "nickname must not be longer than 16 characters")
 	reg.CheckField(valid.MinChars(reg.Password, 8), "password", "password must be at least 8 characters")
-	reg.CheckField(valid.MaxChars(reg.Password, 32), "password", "password must not be longer than 32 characters")
+	reg.CheckField(valid.MaxChars(reg.Password, 16), "password", "password must not be longer than 16 characters")
 	if !reg.Valid() {
 		reg.FailMsg = "Invalid register request"
 		valid.HandleValidationError(w, &reg.Validator, h.log.Error())

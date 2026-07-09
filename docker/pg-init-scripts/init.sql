@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     id uuid PRIMARY KEY DEFAULT uuidv7(),
     login_id character varying(16) NOT NULL UNIQUE,
     nickname character varying(16) NOT NULL,
-    -- 密码本身32字符以内，但以 argon2id hash 方式存
+    -- 密码本身 16 字符以内，但以 argon2id hash 方式存
     password_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );

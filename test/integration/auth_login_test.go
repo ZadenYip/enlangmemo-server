@@ -85,8 +85,8 @@ func TestLoginPasswordTooLong(t *testing.T) {
 
 	body := auth.LoginRequest{
 		LoginID: "testuser",
-		// 33 字符
-		Password: "abcdefghijklmnopqrstuvwxyzabcdefg",
+		// 17 字符
+		Password: "abcdefghijklmnopq",
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
 
@@ -108,7 +108,7 @@ func TestLoginPasswordTooLong(t *testing.T) {
 	violation, ok := violations[0].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "password", violation["field"])
-	require.Equal(t, "password must not be longer than 32 characters", violation["description"])
+	require.Equal(t, "password must not be longer than 16 characters", violation["description"])
 }
 
 func TestLoginLoginIDBlank(t *testing.T) {
