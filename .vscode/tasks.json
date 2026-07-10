@@ -1,0 +1,13 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "go:test",
+            "type": "shell",
+            "command": "go test -v ./... -coverprofile=coverage.out --coverpkg=./... --count=1",
+            "problemMatcher": [
+                "$go"
+            ]
+        }
+    ]
+}
