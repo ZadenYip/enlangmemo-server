@@ -11,5 +11,8 @@ func NewClient(pgURL string) *pgxpool.Pool {
 	if err != nil {
 		panic(err)
 	}
+	if err := dbpool.Ping(context.Background()); err != nil {
+		panic(err)
+	}
 	return dbpool
 }
