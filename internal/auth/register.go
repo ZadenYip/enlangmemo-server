@@ -29,6 +29,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		httpjson.HandleJSONDecodeError(w, err, h.log.Error())
 		return
 	}
+	h.log.InfoCtx(r.Context(), "Register request received", "loginId", reg.LoginID, "nickname", reg.Nickname)
 
 	reg.CheckField(valid.NotBlank(reg.LoginID), "loginId", "loginId must not be blank")
 	reg.CheckField(valid.MaxChars(reg.LoginID, 16), "loginId", "loginId must not be longer than 16 characters")
@@ -39,12 +40,14 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	reg.CheckField(valid.MaxChars(reg.Password, 16), "password", "password must not be longer than 16 characters")
 	if !reg.Valid() {
 		reg.FailMsg = "Invalid register request"
+		h.log.InfoCtx(r.Context(), "Invalid register request", "loginId", reg.LoginID, "nickname", reg.Nickname)
 		valid.HandleValidationError(w, &reg.Validator, h.log.Error())
 		return
 	}
 
 	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
 	if err != nil {
+		h.log.ErrorCtx(r.Context(), "Failed to hash password", "error", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to hash password", h.log.Error())
 		return
 	}
@@ -52,13 +55,16 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.users.CreateUser(r.Context(), reg.LoginID, reg.Nickname, passwdHash)
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
+			h.log.InfoCtx(r.Context(), "User already exists", "loginId", reg.LoginID)
 			httpjson.ResponseStatusError(w, aip.StatusAlreadyExists, "User already exists", h.log.Error())
 			return
 		}
 
+		h.log.ErrorCtx(r.Context(), "Failed to create user", "error", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to create user", h.log.Error())
 		return
 	}
 
+	h.log.InfoCtx(r.Context(), "User registered successfully", "userId", userID, "loginId", reg.LoginID, "nickname", reg.Nickname)
 	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID}, h.log.Error())
 }
