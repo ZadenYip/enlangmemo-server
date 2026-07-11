@@ -1,0 +1,33 @@
+<div class="login-page">
+  <div class="login-form">
+    <h1>登录账号</h1>
+
+    <form [formRoot]="loginForm">
+      <mat-form-field appearance="outline">
+        <mat-label>登录 ID</mat-label>
+        <input matInput type="text" autocomplete="username" [formField]="loginForm.loginId">
+
+        @if (loginForm.loginId().touched() && loginForm.loginId().invalid()) {
+          <mat-error>{{ loginForm.loginId().errors()[0].message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>密码</mat-label>
+        <input matInput type="password" autocomplete="current-password" [formField]="loginForm.password">
+
+        @if (loginForm.password().touched() && loginForm.password().invalid()) {
+          <mat-error>{{ loginForm.password().errors()[0].message }}</mat-error>
+        }
+      </mat-form-field>
+
+      <button matButton="filled" type="submit" [disabled]="loginForm().invalid() || loginForm().submitting()">
+        @if (loginForm().submitting()) {
+          登录中...
+        } @else {
+          登录
+        }
+      </button>
+    </form>
+  </div>
+</div>

@@ -37,6 +37,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	req.CheckField(valid.MaxChars(req.Password, 16), "password", "password must not be longer than 16 characters")
 	if !req.Valid() {
 		req.FailMsg = "Invalid login request"
+		h.log.InfoCtx(r.Context(), "invalid login request", "loginId", req.LoginID)
 		valid.HandleValidationError(w, &req.Validator, h.log.Error())
 		return
 	}
@@ -44,43 +45,50 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	userID, actualHash, err := h.users.GetPasswordHash(r.Context(), req.LoginID)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			httpjson.ResponseStatusError(w, aip.StatusNotFound, "User not found", h.log.Error())
+			h.log.InfoCtx(r.Context(), "user not found", "loginId", req.LoginID)
+			httpjson.ResponseStatusError(w, aip.StatusUnauthenticated, "invalid login credentials", h.log.Error())
 			return
 		} else {
 			h.log.ErrorCtx(r.Context(), "failed to get password hash",
 				"loginId", req.LoginID,
 				"err", err,
 			)
-			httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to get password hash", h.log.Error())
+			httpjson.ResponseStatusError(w, aip.StatusInternal, "failed to get password hash", h.log.Error())
 			return
 		}
 	}
 
 	match, err := argon2id.ComparePasswordAndHash(req.Password, actualHash)
 	if err != nil {
+		// 比较密码和哈希失败
 		h.log.ErrorCtx(r.Context(), "failed to compare password and hash",
 			"loginId", req.LoginID,
 			"err", err,
 		)
-		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to compare password and hash", h.log.Error())
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "failed to compare password and hash", h.log.Error())
 		return
 	}
 
+	// 密码错误
 	if !match {
-		httpjson.ResponseStatusError(w, aip.StatusUnauthenticated, "Invalid password", h.log.Error())
+		h.log.InfoCtx(r.Context(), "invalid password", "loginId", req.LoginID)
+		httpjson.ResponseStatusError(w, aip.StatusUnauthenticated, "invalid login credentials", h.log.Error())
 		return
 	}
 
 	sessionID, err := h.sso.Create(r.Context(), userID)
 	if err != nil {
+		// 创建 session 失败
 		h.log.ErrorCtx(r.Context(), "failed to create session",
 			"loginId", req.LoginID,
 			"err", err,
 		)
-		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to create session", h.log.Error())
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "failed to create session", h.log.Error())
 		return
 	}
 
+	// 登录成功，返回 session cookie
+	h.log.InfoCtx(r.Context(), "user logged in successfully", "userId", userID, "loginId", req.LoginID)
 	ssoCookie := sso.GenerateCookie(sessionID)
 	http.SetCookie(w, &ssoCookie)
 	httpjson.ResponseJSON(w, http.StatusOK, LoginResponse{}, h.log.Error())
