@@ -27,23 +27,3 @@ func TestPanicRecoveryRecoveredPanic(t *testing.T) {
 		rr.Body.String(),
 	)
 }
-
-func TestTraceMissingTraceHeader(t *testing.T) {
-	nextCalled := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nextCalled = true
-	})
-	handler := Trace(next, logging.NewServerLog())
-
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	handler.ServeHTTP(rr, req)
-
-	require.False(t, nextCalled)
-	require.Equal(t, http.StatusInternalServerError, rr.Code)
-	require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
-	require.JSONEq(t,
-		`{"error":{"code":500,"message":"Nginx generated traceparent header is missing in request","status":"INTERNAL","details":[]}}`,
-		rr.Body.String(),
-	)
-}

@@ -178,7 +178,7 @@ func TestLoginUserNotFound(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.login(rr, newLoginRequest(`{"loginId":"alice","password":"password"}`))
 
-	require.Equal(t, http.StatusNotFound, rr.Code, "body = %s", rr.Body.String())
+	require.Equal(t, http.StatusUnauthorized, rr.Code, "body = %s", rr.Body.String())
 	require.Empty(t, rr.Result().Cookies())
 	userStore.AssertExpectations(t)
 	ssoStore.AssertExpectations(t)

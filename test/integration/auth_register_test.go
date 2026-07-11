@@ -202,6 +202,26 @@ func TestRegisterNicknameBlank(t *testing.T) {
 	require.Equal(t, "nickname must not be blank", violation["description"])
 }
 
+// 测试密码为空的情况
+func TestRegisterPasswordBlank(t *testing.T) {
+	resetEnv(t)
+
+	body := auth.RegisterRequest{
+		LoginID:  "testuser",
+		Nickname: "测试用户",
+		Password: "",
+	}
+	resp := doRegister(t, marshalRegisterRequest(t, body))
+
+	var errResp httpjson.ErrResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
+	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
+	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
+}
+
 // 测试密码长度小于 8 个字符的情况
 func TestRegisterPasswordTooShort(t *testing.T) {
 	resetEnv(t)

@@ -174,13 +174,13 @@ func TestLoginUserNotFound(t *testing.T) {
 	}
 	resp := doLogin(t, marshalLoginRequest(t, body))
 
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, aip.StatusNotFound.HTTPCode(), errResp.Error.Code)
-	require.Equal(t, aip.StatusNotFound.String(), errResp.Error.Status)
-	require.Equal(t, "User not found", errResp.Error.Message)
+	require.Equal(t, aip.StatusUnauthenticated.HTTPCode(), errResp.Error.Code)
+	require.Equal(t, aip.StatusUnauthenticated.String(), errResp.Error.Status)
+	require.Equal(t, "Invalid login credentials", errResp.Error.Message)
 }
 
 func TestLoginInvalidPassword(t *testing.T) {
@@ -200,4 +200,24 @@ func TestLoginInvalidPassword(t *testing.T) {
 	require.Equal(t, aip.StatusUnauthenticated.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusUnauthenticated.String(), errResp.Error.Status)
 	require.Equal(t, "Invalid password", errResp.Error.Message)
+}
+
+func TestLoginBlankPassword(t *testing.T) {
+	resetEnv(t)
+	registerUserForLogin(t, "testuser", "testpassword")
+
+	body := auth.LoginRequest{
+		LoginID:  "testuser",
+		Password: "",
+	}
+	resp := doLogin(t, marshalLoginRequest(t, body))
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var errResp httpjson.ErrResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
+	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
+	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
+	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Len(t, errResp.Error.Details, 1)
 }
