@@ -36,7 +36,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	req.CheckField(valid.MinChars(req.Password, 8), "password", "password must be at least 8 characters")
 	req.CheckField(valid.MaxChars(req.Password, 16), "password", "password must not be longer than 16 characters")
 	if !req.Valid() {
-		req.FailMsg = "Invalid login request"
+		req.FailMsg = "invalid login request"
 		h.log.InfoCtx(r.Context(), "invalid login request", "loginId", req.LoginID)
 		valid.HandleValidationError(w, &req.Validator, h.log.Error())
 		return

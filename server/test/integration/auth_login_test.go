@@ -96,7 +96,7 @@ func TestLoginPasswordTooLong(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Equal(t, "invalid login request", errResp.Error.Message)
 
 	// 检查具体的 field violation
 	require.Len(t, errResp.Error.Details, 1)
@@ -124,7 +124,7 @@ func TestLoginLoginIDBlank(t *testing.T) {
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Equal(t, "invalid login request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -151,7 +151,7 @@ func TestLoginPasswordTooShort(t *testing.T) {
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Equal(t, "invalid login request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -180,7 +180,7 @@ func TestLoginUserNotFound(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusUnauthenticated.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusUnauthenticated.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid login credentials", errResp.Error.Message)
+	require.Equal(t, "invalid login credentials", errResp.Error.Message)
 }
 
 func TestLoginInvalidPassword(t *testing.T) {
@@ -199,7 +199,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusUnauthenticated.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusUnauthenticated.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid password", errResp.Error.Message)
+	require.Equal(t, "invalid login credentials", errResp.Error.Message)
 }
 
 func TestLoginBlankPassword(t *testing.T) {
@@ -218,6 +218,6 @@ func TestLoginBlankPassword(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid login request", errResp.Error.Message)
+	require.Equal(t, "invalid login request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 }

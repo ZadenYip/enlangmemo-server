@@ -45,7 +45,7 @@ func initTestEnv(ctx context.Context) (*testEnv, error) {
 		postgres.WithUsername(testDBUser),
 		postgres.WithPassword(testDBPassword),
 		// init 建表
-		postgres.WithOrderedInitScripts(filepath.Join("..", "..", "docker", "pg-init-scripts", "init.sql")),
+		postgres.WithOrderedInitScripts(filepath.Join("..", "..", "..", "docker", "pg-init-scripts", "init.sql")),
 		postgres.BasicWaitStrategies(),
 		postgres.WithSQLDriver("pgx"),
 	)

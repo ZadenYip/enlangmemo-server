@@ -1,8 +1,12 @@
 {
 	"folders": [
 		{
-			"name": "server",
+			"name": "all",
 			"path": "."
+		},
+		{
+			"name": "server",
+			"path": "server"
 		},
 		{
 			"name": "web",

@@ -58,7 +58,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
 			h.log.InfoCtx(r.Context(), "user already exists", "loginId", reg.LoginID)
-			httpjson.ResponseStatusError(w, aip.StatusAlreadyExists, "User already exists", h.log.Error())
+			httpjson.ResponseStatusError(w, aip.StatusAlreadyExists, "user already exists", h.log.Error())
 			return
 		}
 

@@ -98,7 +98,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
 
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	// 检查具体的 field violation
@@ -130,7 +130,7 @@ func TestRegisterLoginIDInvalidChars(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -159,7 +159,7 @@ func TestRegisterLoginIDBlank(t *testing.T) {
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -188,7 +188,7 @@ func TestRegisterNicknameBlank(t *testing.T) {
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -218,7 +218,7 @@ func TestRegisterPasswordBlank(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 }
 
@@ -237,7 +237,7 @@ func TestRegisterPasswordTooShort(t *testing.T) {
 
 	var errResp httpjson.ErrResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 
 	detail, ok := errResp.Error.Details[0].(map[string]any)
@@ -282,7 +282,7 @@ func TestRegisterPasswordTooLong(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusInvalidArgument.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusInvalidArgument.String(), errResp.Error.Status)
-	require.Equal(t, "Invalid register request", errResp.Error.Message)
+	require.Equal(t, "invalid register request", errResp.Error.Message)
 	require.Len(t, errResp.Error.Details, 1)
 }
 
@@ -306,5 +306,5 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 	require.NoError(t, json.NewDecoder(secondResp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusAlreadyExists.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusAlreadyExists.String(), errResp.Error.Status)
-	require.Equal(t, "User already exists", errResp.Error.Message)
+	require.Equal(t, "user already exists", errResp.Error.Message)
 }
