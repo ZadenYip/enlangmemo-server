@@ -4,8 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/zadenyip/enlangmemo-server/internal/aip"
-	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+	"github.com/google/uuid"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
@@ -15,14 +14,9 @@ func Trace(next http.Handler, logger logging.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace := r.Header.Get(TraceHeader)
 		if trace == "" {
-			logger.Error().ErrorContext(r.Context(), "traceparent header is missing in request", "url", r.URL.String())
-			httpjson.ResponseStatusError(
-				w,
-				aip.StatusInternal,
-				"Nginx generated traceparent header is missing in request",
-				logger.Error(),
-			)
-			return
+			logger.Error().WarnContext(r.Context(), "traceparent header is missing in request", "url", r.URL.String())
+			trace = uuid.New().String()
+			r.Header.Set(TraceHeader, trace)
 		}
 
 		ctx := context.WithValue(r.Context(), logging.TraceKey{}, trace)
