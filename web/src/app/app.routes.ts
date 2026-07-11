@@ -16,13 +16,13 @@ export const routes: Routes = [
     },
     {
         path: APP_PATHS.LOGIN,
-        loadComponent: () => import('./login/login').then(
+        loadComponent: () => import('./auth/login/login').then(
             (m) => m.Login
         )
     },
     {
         path: APP_PATHS.SIGNUP,
-        loadComponent: () => import('./sign-up/sign-up').then(
+        loadComponent: () => import('./auth/sign-up/sign-up').then(
             (m) => m.SignUp
         )
     },
