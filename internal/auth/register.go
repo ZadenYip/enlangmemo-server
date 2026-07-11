@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
@@ -29,6 +30,7 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		httpjson.HandleJSONDecodeError(w, err, h.log.Error())
 		return
 	}
+	reg.LoginID = strings.ToLower(reg.LoginID)
 	h.log.InfoCtx(r.Context(), "register request received", "loginId", reg.LoginID, "nickname", reg.Nickname)
 
 	reg.CheckField(valid.NotBlank(reg.LoginID), "loginId", "loginId must not be blank")

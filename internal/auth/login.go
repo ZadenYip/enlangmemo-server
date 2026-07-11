@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
@@ -28,6 +29,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.LoginID = strings.ToLower(req.LoginID)
 	req.CheckField(valid.NotBlank(req.LoginID), "loginId", "loginId must not be blank")
 	req.CheckField(valid.MaxChars(req.LoginID, 16), "loginId", "loginId must not be longer than 16 characters")
 	req.CheckField(valid.ASCIIAlnum(req.LoginID), "loginId", "loginId must contain only English letters and digits")
