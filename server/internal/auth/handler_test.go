@@ -115,9 +115,9 @@ func (store *mockSSOStore) Delete(ctx context.Context, sessionID string) error {
 	return args.Error(0)
 }
 
-func (store *mockSSOStore) Logout(ctx context.Context, sessionID string) error {
+func (store *mockSSOStore) Logout(ctx context.Context, sessionID string) (int64, error) {
 	args := store.Called(ctx, sessionID)
-	return args.Error(0)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func newLoginRequest(body string) *http.Request {
@@ -229,7 +229,7 @@ func TestLogoutStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	ssoStore := new(mockSSOStore)
 	ssoStore.On("Logout", mock.Anything, "session-id").
-		Return(errors.New("store error"))
+		Return(int64(0), errors.New("store error"))
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
@@ -240,12 +240,29 @@ func TestLogoutStoreError(t *testing.T) {
 	ssoStore.AssertExpectations(t)
 }
 
+// 测试退出登录时 session 不存在或已经退出的情况
+func TestLogoutSessionNotFound(t *testing.T) {
+	userStore := new(mockUserStore)
+	ssoStore := new(mockSSOStore)
+	ssoStore.On("Logout", mock.Anything, "session-id").
+		Return(int64(0), nil)
+	handler := newTestHandler(userStore, ssoStore)
+
+	rr := httptest.NewRecorder()
+	handler.logout(rr, newLogoutRequest("session-id"))
+
+	require.Equal(t, http.StatusNotFound, rr.Code, "body = %s", rr.Body.String())
+	require.Empty(t, rr.Result().Cookies())
+	userStore.AssertExpectations(t)
+	ssoStore.AssertExpectations(t)
+}
+
 // 测试退出登录成功的情况
 func TestLogoutSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
 	ssoStore := new(mockSSOStore)
 	ssoStore.On("Logout", mock.Anything, "session-id").
-		Return(nil)
+		Return(int64(1), nil)
 	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()

@@ -18,6 +18,7 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, http.ErrNoCookie) {
 			// 如果没有 cookie，仍然返回 200 OK，并清除 cookie
 			expiredCookie := sso.GenerateExpiredCookie()
+			h.log.InfoCtx(r.Context(), "no session cookie found, returning 200 OK and clearing cookie")
 			http.SetCookie(w, &expiredCookie)
 			httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.log.Error())
 			return
@@ -32,17 +33,26 @@ func (h *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie.Value == "" {
 		expiredCookie := sso.GenerateExpiredCookie()
 		http.SetCookie(w, &expiredCookie)
+		h.log.WarnCtx(r.Context(), "session cookie value is empty, returning 200 OK and clearing cookie")
 		httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.log.Error())
 		return
 	}
 
-	if err := h.sso.Logout(r.Context(), cookie.Value); err != nil {
-		h.log.ErrorCtx(r.Context(), "failed to delete session", "err", err)
+	deletedCount, err := h.sso.Logout(r.Context(), cookie.Value)
+	if err != nil {
+		h.log.ErrorCtx(r.Context(), "failed to logout session", "err", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to delete session", h.log.Error())
+		return
+	}
+	if deletedCount == 0 {
+		// 本身就没有这个 session
+		h.log.WarnCtx(r.Context(), "session not found or already logged out", "sessionID", cookie.Value)
+		httpjson.ResponseStatusError(w, aip.StatusNotFound, "Session not found or already logged out", h.log.Error())
 		return
 	}
 
 	expiredCookie := sso.GenerateExpiredCookie()
 	http.SetCookie(w, &expiredCookie)
+	h.log.InfoCtx(r.Context(), "session logged out successfully")
 	httpjson.ResponseJSON(w, http.StatusOK, LogoutResponse{}, h.log.Error())
 }

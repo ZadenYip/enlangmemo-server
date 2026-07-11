@@ -12,7 +12,7 @@ import (
 type SSOStore interface {
 	Create(ctx context.Context, userID string) (string, error)
 	GetUserID(ctx context.Context, sessionID string) (string, error)
-	Delete(ctx context.Context, sessionID string) error
+	Logout(ctx context.Context, sessionID string) (int64, error)
 }
 
 var ErrSessionIDCollision = errors.New("session id collision")
@@ -51,14 +51,10 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 	return "", ErrSessionIDCollision
 }
 
-func (s *RedisSSOStore) Logout(ctx context.Context, sessionID string) error {
-	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Err()
+func (s *RedisSSOStore) Logout(ctx context.Context, sessionID string) (int64, error) {
+	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Result()
 }
 
 func (s *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
 	return s.Rdb.Get(ctx, ssoKeyPrefix+sessionID).Result()
-}
-
-func (s *RedisSSOStore) Delete(ctx context.Context, sessionID string) error {
-	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Err()
 }

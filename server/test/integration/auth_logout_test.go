@@ -103,11 +103,8 @@ func TestLogoutInvalidOrExpiredCookie(t *testing.T) {
 		Value: "invalid-session-id",
 	})
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	requireExpiredSSOCookie(t, resp)
-
-	var logoutResp auth.LogoutResponse
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&logoutResp))
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Empty(t, resp.Cookies())
 }
 
 // 确定返回的 cookie 是一个过期的 SSO cookie
