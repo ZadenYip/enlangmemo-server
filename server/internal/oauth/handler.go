@@ -8,16 +8,16 @@ import (
 
 type OAuthHandler struct {
 	oaStore OAStorer
-	logger  logging.Logger
+	log     logging.Logger
 }
 
 func NewOAuthHandler(oaStore OAStorer, logger logging.Logger) *OAuthHandler {
 	return &OAuthHandler{
 		oaStore: oaStore,
-		logger:  logger,
+		log:     logger,
 	}
 }
 
 func (h *OAuthHandler) RegisterRoutes(mux *http.ServeMux) {
-	// mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 }
