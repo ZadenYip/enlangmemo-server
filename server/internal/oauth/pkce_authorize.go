@@ -93,13 +93,21 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 		return true
 	}
 
+	// 验证 redirect_uri 是否与注册的 client 的 redirect_uri 一致
+	// 注意这里得先验证 URI 是不是相同，不相同返回 JSON 不是重定向，不然会重定向到不安全的 URI
+	req.CheckField(req.redirectURI == clientConfig.RedirectURI, "redirect_uri", "Invalid redirect_uri")
+	if !req.Valid() {
+		h.log.InfoCtx(r.Context(), "invalid redirect_uri", "redirectURI", req.redirectURI)
+		h.responseValidErrInJson(w, req)
+		return true
+	}
+
 	// 下面得用重定向的 URI 查询组件重定向
-	//
 	// 验证 response_type 是否符合 PKCE 要求的 "code"
 	errorRedirect := OAErrorRedirect{
 		errorCode:   invalidRequest,
 		state:       req.state,
-		redirectURI: req.redirectURI,
+		redirectURI: clientConfig.RedirectURI,
 	}
 
 	// 验证 response_type 是否为 "code"
@@ -107,15 +115,6 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	if !req.Valid() {
 		h.log.InfoCtx(r.Context(), "invalid response_type", "responseType", req.responseType)
 		errorRedirect.errorDescription = "response_type must be 'code'"
-		h.redirectWithErr(w, r, errorRedirect)
-		return true
-	}
-
-	// 验证 redirect_uri 是否与注册的 client 的 redirect_uri 一致
-	req.CheckField(req.redirectURI == clientConfig.RedirectURI, "redirect_uri", "Invalid redirect_uri")
-	if !req.Valid() {
-		h.log.InfoCtx(r.Context(), "invalid redirect_uri", "redirectURI", req.redirectURI)
-		errorRedirect.errorDescription = "Invalid redirect_uri"
 		h.redirectWithErr(w, r, errorRedirect)
 		return true
 	}
