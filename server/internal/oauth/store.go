@@ -11,11 +11,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session"
 )
 
 type OAStorer interface {
 	// 获取 OAuth 客户端信息
 	GetClientInfo(ctx context.Context, clientID string) (OAClientInfo, error)
+	// 生成并存储授权码和会话信息
+	GenCodeStoreSession(ctx context.Context, authoInfo AuthorizationInfo) (string, error)
 }
 
 type OAStore struct {
@@ -61,6 +64,7 @@ func (s *OAStore) GetClientInfo(ctx context.Context, clientID string) (OAClientI
 		clientInfo.ClientID = clientID
 		s.cacheClientInfo(ctx, cacheKey, clientInfo)
 	default:
+		s.logger.ErrorCtx(ctx, "failed to query oauth client info from database", "clientID", clientID, "err", err)
 		return OAClientInfo{}, err
 	}
 
@@ -102,4 +106,55 @@ func (s *OAStore) cacheClientInfo(ctx context.Context, cacheKey string, clientIn
 	if err := s.rdb.Set(ctx, cacheKey, data, oaClientInfoCacheTTL).Err(); err != nil {
 		s.logger.WarnCtx(ctx, "failed to set oauth client info in cache", "clientID", clientInfo.ClientID, "err", err)
 	}
+}
+
+type OAuthSession struct {
+	// Code 作为存进 Redis 的 key 了
+	// Code          string `json:"code"`
+	RedirectURI   string `json:"redirect_uri"`
+	ClientID      string `json:"client_id"`
+	CodeChallenge string `json:"code_challenge"`
+}
+
+var failedToGenerateUniqueAuthCodeErr = errors.New("failed to generate unique auth code after max retries")
+
+// 生成一个唯一的授权码，并将其与 OAuthSession 存储在 Redis 中
+func (s *OAStore) GenCodeStoreSession(ctx context.Context, authoInfo AuthorizationInfo) (string, error) {
+	sessionData := OAuthSession{
+		RedirectURI:   authoInfo.redirectURI,
+		ClientID:      authoInfo.clientID,
+		CodeChallenge: authoInfo.codeChallenge,
+	}
+
+	const maxRetriesConflict = 3
+	for range maxRetriesConflict {
+		authCode, err := session.NewID()
+		if err != nil {
+			s.logger.ErrorCtx(ctx, "failed to generate auth code", "err", err)
+			return "", err
+		}
+
+		dataJSON, err := json.Marshal(sessionData)
+		if err != nil {
+			s.logger.ErrorCtx(ctx, "failed to marshal oauth session data", "err", err)
+			return "", err
+		}
+
+		const keyPrefix = "oauth:session:"
+		ok, err := s.rdb.SetNX(ctx, keyPrefix+authCode, dataJSON, 10*time.Minute).Result()
+
+		if err != nil {
+			s.logger.ErrorCtx(ctx, "failed to store oauth session", "err", err)
+			return "", err
+		}
+
+		if ok {
+			return authCode, nil
+		} else {
+			s.logger.WarnCtx(ctx, "auth code conflict, trying again")
+		}
+	}
+
+	s.logger.ErrorCtx(ctx, "failed to generate unique auth code after max retries")
+	return "", failedToGenerateUniqueAuthCodeErr
 }

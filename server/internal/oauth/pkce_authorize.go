@@ -26,6 +26,12 @@ type authorizeRequest struct {
 	validation.Validator
 }
 
+type authorizeResponse struct {
+	authCode    string
+	redirectURI string
+	state       string
+}
+
 func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	var info = h.infoFromRequest(r)
 	authorizeReq := authorizeRequest{
@@ -37,6 +43,19 @@ func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authCode, err := h.oaStore.GenCodeStoreSession(r.Context(), info)
+	if err != nil {
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		return
+	}
+
+	authorizeResponse := authorizeResponse{
+		authCode:    authCode,
+		redirectURI: info.redirectURI,
+		state:       info.state,
+	}
+
+	h.responseAuthCode(w, r, &authorizeResponse)
 }
 
 func (h *OAuthHandler) infoFromRequest(r *http.Request) AuthorizationInfo {
@@ -129,6 +148,21 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	}
 
 	return false
+}
+
+func (h *OAuthHandler) responseAuthCode(w http.ResponseWriter, r *http.Request, resp *authorizeResponse) {
+	u, err := url.Parse(resp.redirectURI)
+	if err != nil {
+		h.log.ErrorCtx(r.Context(), "failed to parse redirect_uri", "redirectURI", resp.redirectURI, "err", err)
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		return
+	}
+	values := u.Query()
+	setParams(values, "code", resp.authCode)
+	setParams(values, "state", resp.state)
+
+	u.RawQuery = values.Encode()
+	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
 func (h *OAuthHandler) responseValidErrInJson(w http.ResponseWriter, req *authorizeRequest) {
