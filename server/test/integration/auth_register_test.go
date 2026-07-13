@@ -306,5 +306,5 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 	require.NoError(t, json.NewDecoder(secondResp.Body).Decode(&errResp))
 	require.Equal(t, aip.StatusAlreadyExists.HTTPCode(), errResp.Error.Code)
 	require.Equal(t, aip.StatusAlreadyExists.String(), errResp.Error.Status)
-	require.Equal(t, "user already exists", errResp.Error.Message)
+	require.Equal(t, "User already exists", errResp.Error.Message)
 }
