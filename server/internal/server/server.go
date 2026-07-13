@@ -7,13 +7,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	"github.com/zadenyip/enlangmemo-server/internal/oauth"
 	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 type Server struct {
-	log         logging.Logger
-	authHandler *auth.AuthHandler
+	log          logging.Logger
+	authHandler  *auth.AuthHandler
+	oauthHandler *oauth.OAuthHandler
 }
 
 type StoreDeps struct {
@@ -27,12 +29,21 @@ type RouteRegistrar interface {
 }
 
 func New(storeDeps StoreDeps, logger logging.Logger) *Server {
+
 	userStore := auth.NewPGUserStore(storeDeps.PGPool)
 	ssoStore := &sso.RedisSSOStore{Rdb: storeDeps.Rdb}
 
+	// Auth handler
+	authHandler := auth.NewAuthHandler(userStore, ssoStore, logger)
+
+	// OAuth handler
+	oaStore := oauth.NewOAStore(storeDeps.PGPool, storeDeps.Rdb, logger)
+	oauthHandler := oauth.NewOAuthHandler(oaStore, logger)
+
 	return &Server{
-		log:         logger,
-		authHandler: auth.NewAuthHandler(userStore, ssoStore, logger),
+		log:          logger,
+		authHandler:  authHandler,
+		oauthHandler: oauthHandler,
 	}
 }
 
@@ -43,6 +54,8 @@ func (srv *Server) routes() http.Handler {
 	// 注册注册和登录的路由
 	srv.authHandler.RegisterRoutes(mux)
 
+	// 注册授权路由
+	srv.oauthHandler.RegisterRoutes(mux)
 	return mux
 }
 

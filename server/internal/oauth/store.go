@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
-	"github.com/zadenyip/enlangmemo-server/internal/server"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session"
 )
 
@@ -27,10 +26,10 @@ type OAStore struct {
 	logger logging.Logger
 }
 
-func NewOAStore(storeDeps server.StoreDeps, logger logging.Logger) *OAStore {
+func NewOAStore(pgpool *pgxpool.Pool, rdb *redis.Client, logger logging.Logger) *OAStore {
 	return &OAStore{
-		pgpool: storeDeps.PGPool,
-		rdb:    storeDeps.Rdb,
+		pgpool: pgpool,
+		rdb:    rdb,
 		logger: logger,
 	}
 }
