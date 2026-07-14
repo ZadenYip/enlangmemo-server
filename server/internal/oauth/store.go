@@ -113,16 +113,21 @@ type OAuthSession struct {
 	RedirectURI   string `json:"redirect_uri"`
 	ClientID      string `json:"client_id"`
 	CodeChallenge string `json:"code_challenge"`
+
+	UserID string `json:"user_id"`
 }
+
+const oaSessionPrefix = "oauth:session:"
 
 var failedToGenerateUniqueAuthCodeErr = errors.New("failed to generate unique auth code after max retries")
 
-// 生成一个唯一的授权码，并将其与 OAuthSession 存储在 Redis 中
+// GenCodeStoreSession 会生成一个唯一的授权码，并将其与 OAuthSession 存储在 Redis 中
 func (s *OAStore) GenCodeStoreSession(ctx context.Context, authoInfo AuthorizationInfo) (string, error) {
 	sessionData := OAuthSession{
 		RedirectURI:   authoInfo.redirectURI,
 		ClientID:      authoInfo.clientID,
 		CodeChallenge: authoInfo.codeChallenge,
+		UserID:        authoInfo.userID,
 	}
 
 	const maxRetriesConflict = 3
@@ -139,8 +144,7 @@ func (s *OAStore) GenCodeStoreSession(ctx context.Context, authoInfo Authorizati
 			return "", err
 		}
 
-		const keyPrefix = "oauth:session:"
-		ok, err := s.rdb.SetNX(ctx, keyPrefix+authCode, dataJSON, 10*time.Minute).Result()
+		ok, err := s.rdb.SetNX(ctx, oaSessionPrefix+authCode, dataJSON, 10*time.Minute).Result()
 
 		if err != nil {
 			s.logger.ErrorCtx(ctx, "failed to store oauth session", "err", err)

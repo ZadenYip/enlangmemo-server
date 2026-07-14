@@ -38,7 +38,7 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 
 	// OAuth handler
 	oaStore := oauth.NewOAStore(storeDeps.PGPool, storeDeps.Rdb, logger)
-	oauthHandler := oauth.NewOAuthHandler(oaStore, logger)
+	oauthHandler := oauth.NewOAuthHandler(oaStore, ssoStore, logger)
 
 	return &Server{
 		log:          logger,

@@ -4,17 +4,20 @@ import (
 	"net/http"
 
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 type OAuthHandler struct {
-	oaStore OAStorer
-	log     logging.Logger
+	oaStore  OAStorer
+	ssoStore sso.SSOStore
+	log      logging.Logger
 }
 
-func NewOAuthHandler(oaStore OAStorer, logger logging.Logger) *OAuthHandler {
+func NewOAuthHandler(oaStore OAStorer, ssoStore sso.SSOStore, logger logging.Logger) *OAuthHandler {
 	return &OAuthHandler{
-		oaStore: oaStore,
-		log:     logger,
+		oaStore:  oaStore,
+		ssoStore: ssoStore,
+		log:      logger,
 	}
 }
 

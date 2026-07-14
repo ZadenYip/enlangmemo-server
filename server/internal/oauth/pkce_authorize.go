@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	"github.com/zadenyip/enlangmemo-server/internal/validation"
 )
 
@@ -19,6 +21,8 @@ type AuthorizationInfo struct {
 
 	codeChallenge       string
 	codeChallengeMethod string
+
+	userID string
 }
 
 type authorizeRequest struct {
@@ -37,6 +41,14 @@ func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	authorizeReq := authorizeRequest{
 		AuthorizationInfo: info,
 		Validator:         *validation.NewValidator(),
+	}
+
+	userID, loggedIn := h.checkUserLoggedIn(r)
+	if loggedIn {
+		authorizeReq.userID = userID
+		return
+	} else {
+		redirectToLogin(w, r)
 	}
 
 	if h.isInValidRequest(w, r, &authorizeReq) {
@@ -58,6 +70,7 @@ func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	h.responseAuthCode(w, r, &authorizeResponse)
 }
 
+// infoFromRequest 从请求中提取授权请求信息
 func (h *OAuthHandler) infoFromRequest(r *http.Request) AuthorizationInfo {
 	return AuthorizationInfo{
 		responseType:        r.URL.Query().Get("response_type"),
@@ -69,6 +82,47 @@ func (h *OAuthHandler) infoFromRequest(r *http.Request) AuthorizationInfo {
 	}
 }
 
+// checkUserLoggedIn 检查用户是否已登录，如果已登录则返回 token，否则返回空字符串
+func (h *OAuthHandler) checkUserLoggedIn(r *http.Request) (string, bool) {
+	ssoCookie, err := r.Cookie(sso.SSOCookieName)
+	switch {
+	case errors.Is(err, http.ErrNoCookie):
+		return "", false
+	case err != nil:
+		return "", false
+	}
+	checked, err := h.ssoStore.GetUserID(r.Context(), ssoCookie.Value)
+	switch {
+	case errors.Is(err, redis.Nil):
+		return "", false
+	case err != nil:
+		h.log.ErrorCtx(r.Context(), "failed to get userID from SSO store", "err", err)
+		return "", false
+	}
+
+	return checked, true
+}
+
+// redirectToLogin 重定向到登录页面，并携带原始请求的授权信息
+func redirectToLogin(w http.ResponseWriter, r *http.Request) {
+	u, err := url.Parse("/login")
+	if err != nil {
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", nil)
+		return
+	}
+
+	returnTo := r.URL.RequestURI()
+	loginURL, _ := url.Parse("/login")
+	query := loginURL.Query()
+
+	// 登录成功后重定向回原始请求的授权页面
+	query.Set("return_to", r.URL.RequestURI())
+	setParams(query, "return_to", returnTo)
+
+	http.Redirect(w, r, u.String(), http.StatusSeeOther)
+}
+
+// isInValidRequest 验证请求参数是否有效，如果无效则直接响应错误并返回 false
 func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, req *authorizeRequest) bool {
 	req.CheckField(req.clientID != "", "client_id", "client_id is required")
 	req.CheckField(req.redirectURI != "", "redirect_uri", "redirect_uri is required")
@@ -80,7 +134,7 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 
 	clientConfig, err := h.oaStore.GetClientInfo(r.Context(), req.clientID)
 	switch {
-	case errors.Is(err, ErrOAClientNotFound):
+	case errors.Is(err, errOAClientNotFound):
 		// 此 client_id 没注册
 		h.log.InfoCtx(r.Context(), "invalid client_id", "clientID", req.clientID)
 		req.AddFieldError("client_id", "Invalid client_id")
@@ -105,7 +159,7 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	// 下面得用重定向的 URI 查询组件重定向
 	// 验证 response_type 是否符合 PKCE 要求的 "code"
 	errorRedirect := OAErrorRedirect{
-		errorCode:   invalidRequest,
+		errorCode:   authorInvalidRequest,
 		state:       req.state,
 		redirectURI: clientConfig.RedirectURI,
 	}
@@ -149,6 +203,7 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	return false
 }
 
+// responseAuthCode 将授权码通过重定向返回给客户端
 func (h *OAuthHandler) responseAuthCode(w http.ResponseWriter, r *http.Request, resp *authorizeResponse) {
 	u, err := url.Parse(resp.redirectURI)
 	if err != nil {
@@ -164,6 +219,7 @@ func (h *OAuthHandler) responseAuthCode(w http.ResponseWriter, r *http.Request, 
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
+// responseValidErrInJson 将验证错误以 JSON 格式返回给客户端
 func (h *OAuthHandler) responseValidErrInJson(w http.ResponseWriter, req *authorizeRequest) {
 	httpjson.ResponseError(
 		w,
@@ -176,12 +232,13 @@ func (h *OAuthHandler) responseValidErrInJson(w http.ResponseWriter, req *author
 }
 
 type OAErrorRedirect struct {
-	errorCode        OAErrorCode
+	errorCode        OAAuthorErr
 	state            string
 	redirectURI      string
 	errorDescription string
 }
 
+// redirectWithErr 将错误信息通过重定向返回给客户端
 func (h *OAuthHandler) redirectWithErr(w http.ResponseWriter, r *http.Request, errorDirect OAErrorRedirect) {
 	u, err := url.Parse(errorDirect.redirectURI)
 	if err != nil {
