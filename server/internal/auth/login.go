@@ -89,7 +89,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	// 登录成功，返回 session cookie
 	h.log.InfoCtx(r.Context(), "user logged in successfully", "userId", userID, "loginId", req.LoginID)
-	ssoCookie := sso.GenerateCookie(sessionID)
+	ssoCookie := sso.GenerateCookie(sso.SSOCookieName, sessionID)
 	http.SetCookie(w, &ssoCookie)
 	httpjson.ResponseJSON(w, http.StatusOK, LoginResponse{}, h.log.Error())
 }

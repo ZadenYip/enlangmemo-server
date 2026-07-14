@@ -2,11 +2,11 @@ package sso
 
 import "net/http"
 
-const CookieName = "__Host-sso_token"
+const SSOCookieName = "__Host-sso_token"
 
-func GenerateCookie(sessionID string) http.Cookie {
+func GenerateCookie(cookieName, sessionID string) http.Cookie {
 	return http.Cookie{
-		Name:     CookieName,
+		Name:     cookieName,
 		Value:    sessionID,
 		Path:     "/",
 		Secure:   true,
@@ -16,9 +16,9 @@ func GenerateCookie(sessionID string) http.Cookie {
 	}
 }
 
-func GenerateExpiredCookie() http.Cookie {
+func GenerateExpiredCookie(cookieName string) http.Cookie {
 	return http.Cookie{
-		Name:     CookieName,
+		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
 		Secure:   true,

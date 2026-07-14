@@ -83,7 +83,7 @@ func TestLogoutEmptyCookie(t *testing.T) {
 	resetEnv(t)
 
 	resp := doLogout(t, &http.Cookie{
-		Name:  sso.CookieName,
+		Name:  sso.SSOCookieName,
 		Value: "",
 	})
 
@@ -99,7 +99,7 @@ func TestLogoutInvalidOrExpiredCookie(t *testing.T) {
 	resetEnv(t)
 
 	resp := doLogout(t, &http.Cookie{
-		Name:  sso.CookieName,
+		Name:  sso.SSOCookieName,
 		Value: "invalid-session-id",
 	})
 
@@ -113,7 +113,7 @@ func requireExpiredSSOCookie(t *testing.T, resp *http.Response) {
 
 	cookies := resp.Cookies()
 	require.Len(t, cookies, 1)
-	require.Equal(t, sso.CookieName, cookies[0].Name)
+	require.Equal(t, sso.SSOCookieName, cookies[0].Name)
 	require.Empty(t, cookies[0].Value)
 	require.Equal(t, -1, cookies[0].MaxAge)
 }
