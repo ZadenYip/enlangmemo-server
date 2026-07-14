@@ -111,6 +111,10 @@ func ResponseError(w http.ResponseWriter, errResp *aip.ErrResponse, errLog *slog
 	ResponseJSON(w, errResp.Error.Code, errResp, errLog)
 }
 
+// ReponseStatusError 根据输入的 aip.ErrorStatus 返回符合谷歌的 aip 标准的 JSON 错误响应
+//
+// status - aip.ErrorStatus
+// message - 人可读的错误信息
 func ResponseStatusError(w http.ResponseWriter, status aip.ErrorStatus, message string, errLog *slog.Logger) {
 	ResponseError(w,
 		aip.NewErrResponse().
