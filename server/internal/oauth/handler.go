@@ -23,4 +23,5 @@ func NewOAuthHandler(oaStore OAStorer, ssoStore sso.SSOStore, logger logging.Log
 
 func (h *OAuthHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("POST /oauth/token", h.exchangeToken)
 }

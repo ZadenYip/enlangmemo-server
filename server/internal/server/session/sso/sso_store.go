@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session"
 )
 
@@ -23,15 +24,15 @@ const (
 
 	// 8 hours in seconds
 	sessionMaxAge = 8 * 3600
-
-	createMaxAttempts = 3
 )
 
 type RedisSSOStore struct {
 	Rdb *redis.Client
+	log logging.Logger
 }
 
 func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, error) {
+	const createMaxAttempts = 3
 	for range createMaxAttempts {
 		sessionID, err := session.NewID()
 		if err != nil {
@@ -45,9 +46,12 @@ func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, 
 		}
 		if ok {
 			return sessionID, nil
+		} else {
+			store.log.WarnCtx(ctx, "session id collision, retrying", "sessionID", sessionID)
 		}
 	}
 
+	store.log.ErrorCtx(ctx, "failed to create session after max attempts (3)")
 	return "", ErrSessionIDCollision
 }
 

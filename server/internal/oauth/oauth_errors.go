@@ -9,7 +9,7 @@ const (
 	// authorAccessDenied            OAAuthorErr = "access_denied"
 	// authorUnsupportedResponseType OAAuthorErr = "unsupported_response_type"
 	// authorInvalidScope            OAAuthorErr = "invalid_scope"
-	// authorServerError             OAAuthorErr = "server_error"
+	authorServerError OAAuthorErr = "server_error"
 	// authorTemporarilyUnavailable  OAAuthorErr = "temporarily_unavailable"
 )
 
