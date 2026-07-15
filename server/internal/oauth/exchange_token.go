@@ -11,8 +11,6 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 )
 
-const authorizationCodeGrantType = "authorization_code"
-
 func (h *OAuthHandler) exchangeToken(w http.ResponseWriter, r *http.Request) {
 	formData, ok := h.extractFormData(w, r)
 	if !ok {
