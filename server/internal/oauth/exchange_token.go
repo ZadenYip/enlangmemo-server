@@ -71,8 +71,8 @@ func (h *OAuthHandler) responseWithAccessToken(w http.ResponseWriter, r *http.Re
 	}
 
 	// RFC 6749 5.1 要求设置下面两个 Header
-	r.Header.Set("Cache-Control", "no-store")
-	r.Header.Set("Pragma", "no-cache")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 
 	httpjson.ResponseJSON(w, http.StatusOK, tokenResponse, h.log.Error())
 }
