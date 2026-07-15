@@ -173,7 +173,7 @@ func invalidCodeBinding(form tokenFormData, session OAuthSession) (invalid bool,
 	// 验证 code_verifier，流程见 https://datatracker.ietf.org/doc/html/rfc7636#section-4.6
 	// BASE64(SHA256(code_verifier)) -> code_challenge
 	shaCode := sha256.Sum256([]byte(form.codeVerifier))
-	codeChallenge := base64.StdEncoding.EncodeToString(shaCode[:])
+	codeChallenge := base64.RawURLEncoding.EncodeToString(shaCode[:])
 	if codeChallenge != session.CodeChallenge {
 		return true, "code_verifier does not match the one used in the authorization request"
 	}
