@@ -45,7 +45,7 @@ func initTestEnv(ctx context.Context) (*testEnv, error) {
 		postgres.WithUsername(testDBUser),
 		postgres.WithPassword(testDBPassword),
 		// init 建表
-		postgres.WithOrderedInitScripts(filepath.Join("..", "..", "..", "docker", "pg-init-scripts", "init.sql")),
+		postgres.WithOrderedInitScripts(filepath.Join("..", "..", "..", "docker", "pg-init-scripts", "000_schema.sql")),
 		postgres.BasicWaitStrategies(),
 		postgres.WithSQLDriver("pgx"),
 	)
@@ -72,7 +72,7 @@ func initTestEnv(ctx context.Context) (*testEnv, error) {
 		return nil, err
 	}
 
-	// 快照记录的是执行完 init.sql 后、测试写入数据前的干净数据库。
+	// 快照记录的是执行完 00_schema.sql 后、测试写入数据前的干净数据库。
 	if err := env.pgContainer.Snapshot(ctx); err != nil {
 		env.close(ctx)
 		return nil, err

@@ -93,4 +93,4 @@ env.dbPool
 
 - 不要手动拼 Postgres 或 Redis 地址，使用容器提供的 `ConnectionString()`。
 - 不要在单个测试里调用 `env.reset`，统一用 `resetEnv(t)`。
-- 修改数据库 schema 时，更新 `docker/pg-init-scripts/init.sql`，snapshot 会自动基于新的初始化结果创建。
+- 修改数据库 schema 时，更新 `docker/pg-init-scripts/000_schema.sql`，snapshot 会自动基于新的初始化结果创建。
