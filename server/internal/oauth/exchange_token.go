@@ -134,9 +134,34 @@ func isInvalidForm(formData tokenFormData) (invalid bool, description string) {
 		return true, "client_id is required"
 	case formData.codeVerifier == "":
 		return true, "code_verifier is required"
+	case isInValidCodeVerifier(formData.codeVerifier):
+		return true, "code_verifier must be between 43 and 128 characters and contain only unreserved characters"
 	}
 
 	return false, ""
+}
+
+// isInValidCodeVerifier 验证 code_verifier 是否符合 RFC 7636 Section 4.1 的要求
+// code_verifier 的长度必须在 43 到 128 个字符之间，并且只能包含 unreserved characters RFC 3986
+// 见 RFC 3986 Section 2.3: https://datatracker.ietf.org/doc/html/rfc3986#section-2.3
+func isInValidCodeVerifier(codeVerifier string) bool {
+	codeLen := len(codeVerifier)
+	if codeLen < 43 || codeLen > 128 {
+		return true
+	}
+
+	// unreserved characters
+	for _, c := range codeVerifier {
+		valid := (('A' <= c && c <= 'Z') ||
+			('a' <= c && c <= 'z') ||
+			('0' <= c && c <= '9') ||
+			c == '-' || c == '.' || c == '_' || c == '~')
+		if !valid {
+			return true
+		}
+	}
+
+	return false
 }
 
 func invalidCodeBinding(form tokenFormData, session OAuthSession) (invalid bool, description string) {
