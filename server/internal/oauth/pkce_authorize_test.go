@@ -82,7 +82,7 @@ func newAuthorizeRequest(change func(url.Values)) *http.Request {
 		change(query)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/oauth/authorize?"+query.Encode(), nil)
 	req.AddCookie(&http.Cookie{
 		Name:  sso.SSOCookieName,
 		Value: testSessionID,

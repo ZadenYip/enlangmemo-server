@@ -71,7 +71,7 @@ func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, ssoCook
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		testServer.URL+"/oauth/authorize?"+query.Encode(),
+		testServer.URL+"/v1/oauth/authorize?"+query.Encode(),
 		nil,
 	)
 	require.NoError(t, err)
