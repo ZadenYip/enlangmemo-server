@@ -1,0 +1,4 @@
+/coverage.out
+
+# VSCode 运行 main.go 产生的日志文件
+/cmd/server/__debug*
