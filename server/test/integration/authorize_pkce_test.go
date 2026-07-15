@@ -9,8 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
+	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 const (
@@ -36,7 +38,22 @@ func registerOAuthClient(t *testing.T, redirectURI string) string {
 	return clientID
 }
 
-func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, change func(url.Values)) *http.Request {
+func loginForAuthorizePKCE(t *testing.T, loginID string) *http.Cookie {
+	t.Helper()
+
+	registerUserForLogin(t, loginID, "testpassword")
+	resp := doLogin(t, marshalLoginRequest(t, auth.LoginRequest{
+		LoginID:  loginID,
+		Password: "testpassword",
+	}))
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, resp.Cookies(), 1)
+	require.Equal(t, sso.SSOCookieName, resp.Cookies()[0].Name)
+
+	return resp.Cookies()[0]
+}
+
+func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, ssoCookie *http.Cookie, change func(url.Values)) *http.Request {
 	t.Helper()
 
 	query := url.Values{
@@ -58,6 +75,9 @@ func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, change 
 		nil,
 	)
 	require.NoError(t, err)
+	if ssoCookie != nil {
+		req.AddCookie(ssoCookie)
+	}
 
 	return req
 }
@@ -106,8 +126,9 @@ func requireAuthorizeFieldViolation(t *testing.T, resp *http.Response, field, de
 func TestAuthorizePKCESuccess(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
+	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
 
-	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, nil))
+	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, ssoCookie, nil))
 
 	require.Equal(t, http.StatusFound, resp.StatusCode)
 	location, err := url.Parse(resp.Header.Get("Location"))
@@ -132,6 +153,7 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 	require.Equal(t, clientID, oauthSession.ClientID)
 	require.Equal(t, testOAuthRedirectURI, oauthSession.RedirectURI)
 	require.Equal(t, testOAuthCodeChallenge, oauthSession.CodeChallenge)
+	require.NotEmpty(t, oauthSession.UserID)
 
 	ttl, err := env.rdsClient.TTL(t.Context(), key).Result()
 	require.NoError(t, err)
@@ -143,11 +165,13 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 func TestAuthorizePKCERedirectURIMismatchDoesNotRedirect(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
+	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
 
 	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(
 		t,
 		clientID,
 		"https://attacker.example/callback",
+		ssoCookie,
 		nil,
 	))
 
@@ -159,11 +183,13 @@ func TestAuthorizePKCERedirectURIMismatchDoesNotRedirect(t *testing.T) {
 // 测试未知的 client_id
 func TestAuthorizePKCEUnknownClientDoesNotRedirect(t *testing.T) {
 	resetEnv(t)
+	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
 
 	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(
 		t,
 		"00000000-0000-0000-0000-000000000000",
 		testOAuthRedirectURI,
+		ssoCookie,
 		nil,
 	))
 
@@ -222,8 +248,9 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resetEnv(t)
 			clientID := registerOAuthClient(t, testOAuthRedirectURI)
+			ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
 
-			resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, tt.change))
+			resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, ssoCookie, tt.change))
 
 			require.Equal(t, http.StatusFound, resp.StatusCode)
 			location, err := url.Parse(resp.Header.Get("Location"))

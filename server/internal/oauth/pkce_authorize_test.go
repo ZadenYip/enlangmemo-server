@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 const (
@@ -18,9 +19,15 @@ const (
 	testRedirectURI   = "https://client.example/callback?source=test"
 	testState         = "state-value"
 	testCodeChallenge = "0123456789012345678901234567890123456789012"
+	testSessionID     = "session-id"
+	testUserID        = "user-id"
 )
 
 type mockOAStore struct {
+	mock.Mock
+}
+
+type mockSSOStore struct {
 	mock.Mock
 }
 
@@ -32,6 +39,31 @@ func (s *mockOAStore) GetClientInfo(ctx context.Context, clientID string) (OACli
 func (s *mockOAStore) GenCodeStoreSession(ctx context.Context, info AuthorizationInfo) (string, error) {
 	args := s.Called(ctx, info)
 	return args.String(0), args.Error(1)
+}
+
+func (s *mockOAStore) ConsumeCodeSession(ctx context.Context, authCode string) (OAuthSession, error) {
+	args := s.Called(ctx, authCode)
+	return args.Get(0).(OAuthSession), args.Error(1)
+}
+
+func (s *mockOAStore) GenAccessToken(ctx context.Context, userID string) (string, error) {
+	args := s.Called(ctx, userID)
+	return args.String(0), args.Error(1)
+}
+
+func (s *mockSSOStore) Create(ctx context.Context, userID string) (string, error) {
+	args := s.Called(ctx, userID)
+	return args.String(0), args.Error(1)
+}
+
+func (s *mockSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
+	args := s.Called(ctx, sessionID)
+	return args.String(0), args.Error(1)
+}
+
+func (s *mockSSOStore) Logout(ctx context.Context, sessionID string) (int64, error) {
+	args := s.Called(ctx, sessionID)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 // newAuthorizeRequest 是创建 OAuth 授权请求的 helper function
@@ -50,11 +82,19 @@ func newAuthorizeRequest(change func(url.Values)) *http.Request {
 		change(query)
 	}
 
-	return httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+query.Encode(), nil)
+	req.AddCookie(&http.Cookie{
+		Name:  sso.SSOCookieName,
+		Value: testSessionID,
+	})
+	return req
 }
 
 func newOAuthTestHandler(store OAStorer) *OAuthHandler {
-	return NewOAuthHandler(store, logging.NewServerLog())
+	ssoStore := new(mockSSOStore)
+	ssoStore.On("GetUserID", mock.Anything, testSessionID).
+		Return(testUserID, nil)
+	return NewOAuthHandler(store, ssoStore, logging.NewServerLog())
 }
 
 // 正常授权测试
@@ -67,6 +107,7 @@ func TestAuthorizeSuccess(t *testing.T) {
 		state:               testState,
 		codeChallenge:       testCodeChallenge,
 		codeChallengeMethod: "S256",
+		userID:              testUserID,
 	}
 	store.On("GetClientInfo", mock.Anything, testClientID).
 		Return(OAClientInfo{ClientID: testClientID, RedirectURI: testRedirectURI}, nil).
@@ -126,7 +167,7 @@ func TestAuthorizeUnknownClientReturnsJSONError(t *testing.T) {
 
 	// mock GetClientInfo 不知道这个 client_id
 	store.On("GetClientInfo", mock.Anything, testClientID).
-		Return(OAClientInfo{}, ErrOAClientNotFound).
+		Return(OAClientInfo{}, errOAClientNotFound).
 		Once()
 
 	rr := httptest.NewRecorder()
