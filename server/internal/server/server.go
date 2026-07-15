@@ -51,6 +51,8 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 func (srv *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /healthz", health)
+
 	// 注册注册和登录的路由
 	srv.authHandler.RegisterRoutes(mux)
 
