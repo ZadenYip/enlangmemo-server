@@ -44,18 +44,17 @@ func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID, loggedIn := h.checkUserLoggedIn(r)
-	if loggedIn {
-		authorizeReq.userID = userID
-		return
-	} else {
+	if !loggedIn {
 		redirectToLogin(w, r)
+		return
 	}
+	authorizeReq.userID = userID
 
 	if h.isInValidRequest(w, r, &authorizeReq) {
 		return
 	}
 
-	authCode, err := h.oaStore.GenCodeStoreSession(r.Context(), info)
+	authCode, err := h.oaStore.GenCodeStoreSession(r.Context(), authorizeReq.AuthorizationInfo)
 	if err != nil {
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
 		return
@@ -105,21 +104,20 @@ func (h *OAuthHandler) checkUserLoggedIn(r *http.Request) (string, bool) {
 
 // redirectToLogin 重定向到登录页面，并携带原始请求的授权信息
 func redirectToLogin(w http.ResponseWriter, r *http.Request) {
-	u, err := url.Parse("/login")
+	loginURL, err := url.Parse("/login")
 	if err != nil {
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", nil)
 		return
 	}
 
 	returnTo := r.URL.RequestURI()
-	loginURL, _ := url.Parse("/login")
 	query := loginURL.Query()
 
 	// 登录成功后重定向回原始请求的授权页面
-	query.Set("return_to", r.URL.RequestURI())
 	setParams(query, "return_to", returnTo)
+	loginURL.RawQuery = query.Encode()
 
-	http.Redirect(w, r, u.String(), http.StatusSeeOther)
+	http.Redirect(w, r, loginURL.String(), http.StatusSeeOther)
 }
 
 // isInValidRequest 验证请求参数是否有效，如果无效则直接响应错误并返回 false
