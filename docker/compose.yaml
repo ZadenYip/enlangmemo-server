@@ -7,19 +7,19 @@ services:
       - "6379:6379"
     volumes:
       - ./redis_data:/data
-  pg:
-    image: postgres:18.4-alpine
-    container_name: dev-pg
-    shm_size: 128mb
+  mysql:
+    image: mysql:8.4
+    container_name: dev-mysql
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PW}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PW}
+      - MYSQL_DATABASE=${MYSQL_DB}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PW}
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - ./pg_data:/var/lib/postgresql/18/docker
-      - ./pg-init-scripts:/docker-entrypoint-initdb.d/
+      - ./mysql_data:/var/lib/mysql
+      - ./mysql-init-scripts:/docker-entrypoint-initdb.d/
 volumes:
   redis_data:
-  pg_data:
+  mysql_data:

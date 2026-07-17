@@ -2,58 +2,61 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 )
 
-type PGUserStore struct {
-	dbPool *pgxpool.Pool
+type MySQLUserStore struct {
+	db *sql.DB
 }
 
-func NewPGUserStore(dbPool *pgxpool.Pool) *PGUserStore {
-	return &PGUserStore{dbPool: dbPool}
+func NewMySQLUserStore(db *sql.DB) *MySQLUserStore {
+	return &MySQLUserStore{db: db}
 }
 
-func (store *PGUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
+func (store *MySQLUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
 	const insertUser = `
-		INSERT INTO users (login_id, nickname, password_hash) VALUES ($1, $2, $3)
-		RETURNING id
+		INSERT INTO users (id, login_id, nickname, password_hash) VALUES (?, ?, ?, ?)
 	`
 
-	var userID pgtype.UUID
-	err := store.dbPool.QueryRow(ctx, insertUser, loginID, nickname, passwordHash).Scan(&userID)
+	userUUID, err := uuid.NewV7()
 	if err != nil {
-		var pgErr *pgconn.PgError
-		// unique_violation 23505: see https://www.postgresql.org/docs/current/errcodes-appendix.html
-		// 默认隔离级别 read committed 配合 unique constraint 防止 read skew 导致的重复用户创建
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return "", err
+	}
+	userID := userUUID.String()
+
+	_, err = store.db.ExecContext(ctx, insertUser, userUUID[:], loginID, nickname, passwordHash)
+	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		// duplicate entry 1062: https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html#error_er_dup_entry
+		// 利用 unique constraint 防止并发请求导致的重复用户创建。
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 			return "", ErrUserAlreadyExists
 		}
 
 		return "", err
 	}
 
-	return userID.String(), nil
+	return userID, nil
 }
 
-func (store *PGUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
+func (store *MySQLUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
 	const selectUser = `
-		SELECT id, password_hash FROM users WHERE login_id = $1
+		SELECT id, password_hash FROM users WHERE login_id = ?
 	`
 
-	var userID pgtype.UUID
+	var userUUID uuid.UUID
 	var storedPasswordHash string
-	err := store.dbPool.QueryRow(ctx, selectUser, loginID).Scan(&userID, &storedPasswordHash)
-	if errors.Is(err, pgx.ErrNoRows) {
+	err := store.db.QueryRowContext(ctx, selectUser, loginID).Scan(&userUUID, &storedPasswordHash)
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", "", ErrUserNotFound
 	}
 	if err != nil {
 		return "", "", err
 	}
 
-	return userID.String(), storedPasswordHash, nil
+	return userUUID.String(), storedPasswordHash, nil
 }

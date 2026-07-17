@@ -1,11 +1,11 @@
 # Integration 测试使用说明
 
-这个目录/包主要是放集成测试，利用 Testcontainers 库启动 PG 和 Redis，然后去测试各个接口。
+这个目录/包主要是放集成测试，利用 Testcontainers 库启动 MySQL 和 Redis，然后去测试各个接口。
 
 ## 文件结构
 
 - `suite_test.go`：集成测试的总入口/启动处。
-- `env_test.go`：Testcontainers 的一些配置，设计 PG 和 Redis。
+- `env_test.go`：Testcontainers 的一些配置，涉及 MySQL 和 Redis。
 - `*_test.go`：具体场景对应的集成测试。
 
 ## 运行方式
@@ -38,7 +38,7 @@ go test ./test/integration -count=1
 
 `suite_test.go` 会在整个 integration package 开始时初始化一套共享环境，然后跑各个测试用例。
 
-Postgres 初始化完成后会创建一次 snapshot（快照）。每个测试用例开始时调用 `resetEnv(t)`，会把 PG 还原到这个 snapshot，并清空 Redis 当前 DB。
+MySQL 初始化完成后会执行一次 schema。每个测试用例开始时调用 `resetEnv(t)`，会清空 MySQL 业务表，并清空 Redis 当前 DB。
 
 ## 新增测试
 
@@ -80,7 +80,7 @@ func TestSomething(t *testing.T) {
 需要检查数据库状态时，可以使用：
 
 ```go
-env.dbPool
+env.db
 ```
 
 需要检查 Redis 状态时，可以使用：
@@ -91,6 +91,6 @@ env.dbPool
 
 ## 注意事项
 
-- 不要手动拼 Postgres 或 Redis 地址，使用容器提供的 `ConnectionString()`。
+- 不要手动拼 MySQL 或 Redis 地址，使用测试环境里的 `env.dbURL` / `env.rdsURL`。
 - 不要在单个测试里调用 `env.reset`，统一用 `resetEnv(t)`。
-- 修改数据库 schema 时，更新 `docker/pg-init-scripts/000_schema.sql`，snapshot 会自动基于新的初始化结果创建。
+- 修改数据库 schema 时，更新 `docker/mysql-init-scripts/000_schema.sql`。

@@ -1,9 +1,9 @@
 package server
 
 import (
+	"database/sql"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
@@ -19,8 +19,8 @@ type Server struct {
 }
 
 type StoreDeps struct {
-	PGPool *pgxpool.Pool
-	Rdb    *redis.Client
+	DB  *sql.DB
+	Rdb *redis.Client
 }
 
 // 注册路由标签函数
@@ -30,14 +30,14 @@ type RouteRegistrar interface {
 
 func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 
-	userStore := auth.NewPGUserStore(storeDeps.PGPool)
+	userStore := auth.NewMySQLUserStore(storeDeps.DB)
 	ssoStore := &sso.RedisSSOStore{Rdb: storeDeps.Rdb}
 
 	// Auth handler
 	authHandler := auth.NewAuthHandler(userStore, ssoStore, logger)
 
 	// OAuth handler
-	oaStore := oauth.NewOAStore(storeDeps.PGPool, storeDeps.Rdb, logger)
+	oaStore := oauth.NewOAStore(storeDeps.DB, storeDeps.Rdb, logger)
 	oauthHandler := oauth.NewOAuthHandler(oaStore, ssoStore, logger)
 
 	return &Server{

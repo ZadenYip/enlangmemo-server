@@ -12,7 +12,7 @@ import (
 func TestGetClientInfoCachesOAuthClient(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
-	store := oauth.NewOAStore(env.dbPool, env.rdsClient, logging.NewServerLog())
+	store := oauth.NewOAStore(env.db, env.rdsClient, logging.NewServerLog())
 	cacheKey := "oauth:client:" + clientID
 
 	// 确认缓存中不存在该客户端信息

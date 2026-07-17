@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/zadenyip/enlangmemo-server/internal/config"
-	"github.com/zadenyip/enlangmemo-server/internal/infra/pg"
+	"github.com/zadenyip/enlangmemo-server/internal/infra/mysql"
 	"github.com/zadenyip/enlangmemo-server/internal/infra/redisclient"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/server"
@@ -17,16 +17,16 @@ func main() {
 
 	config := config.Load()
 
-	dbPool := pg.NewClient(config.DatabaseURL)
-	logger.Info().Info("connected to postgres")
-	defer dbPool.Close()
+	db := mysql.NewClient(config.DatabaseURL)
+	logger.Info().Info("connected to mysql")
+	defer db.Close()
 
 	rdb := redisclient.NewClient(config.RedisURL)
 	logger.Info().Info("connected to redis")
 
 	storeDeps := server.StoreDeps{
-		PGPool: dbPool,
-		Rdb:    rdb,
+		DB:  db,
+		Rdb: rdb,
 	}
 
 	server := server.New(storeDeps, logger)

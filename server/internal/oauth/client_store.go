@@ -2,11 +2,12 @@ package oauth
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -28,12 +29,18 @@ func (s *OAStore) GetClientInfo(ctx context.Context, clientID string) (OAClientI
 	}
 
 	// Redis 缓存没命中，从数据库查询 OAuth 客户端信息
+	clientUUID, err := uuid.Parse(clientID)
+	if err != nil {
+		s.logger.ErrorCtx(ctx, "failed to parse oauth client id", "clientID", clientID, "err", err)
+		return OAClientInfo{}, err
+	}
+
 	var clientInfo OAClientInfo
-	const query = `SELECT redirect_uri FROM oauth_clients WHERE id = $1`
-	err := s.pgpool.QueryRow(ctx, query, clientID).Scan(&clientInfo.RedirectURI)
+	const query = `SELECT redirect_uri FROM oauth_clients WHERE id = ?`
+	err = s.db.QueryRowContext(ctx, query, clientUUID[:]).Scan(&clientInfo.RedirectURI)
 
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
+	case errors.Is(err, sql.ErrNoRows):
 		return OAClientInfo{}, errOAClientNotFound
 	case err == nil:
 		// 查询成功，并将结果缓存到 Redis

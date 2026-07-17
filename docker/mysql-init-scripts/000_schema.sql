@@ -1,0 +1,17 @@
+-- 数据库 MySQL
+
+CREATE TABLE IF NOT EXISTS oauth_clients (
+    id BINARY(16) NOT NULL PRIMARY KEY,
+    name VARCHAR(32) NOT NULL,
+    redirect_uri VARCHAR(512) NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='OAuth 客户端表';
+
+CREATE TABLE IF NOT EXISTS users (
+    id BINARY(16) NOT NULL PRIMARY KEY,
+    login_id VARCHAR(16) NOT NULL UNIQUE,
+    nickname VARCHAR(16) NOT NULL,
+    -- 密码本身 16 字符以内，但以 argon2id hash 方式存
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户表';
