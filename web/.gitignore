@@ -6,6 +6,8 @@
 /out-tsc
 /bazel-out
 
+coverage.out
+
 # Node
 /node_modules
 npm-debug.log
@@ -42,3 +44,18 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/

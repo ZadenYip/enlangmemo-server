@@ -9,96 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
-	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
-
-const (
-	testOAuthRedirectURI   = "https://client.example/callback?existing=value"
-	testOAuthState         = "state-value"
-	testOAuthCodeChallenge = "0123456789012345678901234567890123456789012"
-)
-
-func registerOAuthClient(t *testing.T, redirectURI string) string {
-	t.Helper()
-
-	var clientID string
-	err := env.dbPool.QueryRow(
-		t.Context(),
-		`INSERT INTO oauth_clients (name, redirect_uri)
-		 VALUES ($1, $2)
-		 RETURNING id::text`,
-		"integration test client",
-		redirectURI,
-	).Scan(&clientID)
-	require.NoError(t, err)
-
-	return clientID
-}
-
-func loginForAuthorizePKCE(t *testing.T, loginID string) *http.Cookie {
-	t.Helper()
-
-	registerUserForLogin(t, loginID, "testpassword")
-	resp := doLogin(t, marshalLoginRequest(t, auth.LoginRequest{
-		LoginID:  loginID,
-		Password: "testpassword",
-	}))
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Len(t, resp.Cookies(), 1)
-	require.Equal(t, sso.SSOCookieName, resp.Cookies()[0].Name)
-
-	return resp.Cookies()[0]
-}
-
-func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, ssoCookie *http.Cookie, change func(url.Values)) *http.Request {
-	t.Helper()
-
-	query := url.Values{
-		"response_type":         {"code"},
-		"client_id":             {clientID},
-		"redirect_uri":          {redirectURI},
-		"state":                 {testOAuthState},
-		"code_challenge":        {testOAuthCodeChallenge},
-		"code_challenge_method": {"S256"},
-	}
-	if change != nil {
-		change(query)
-	}
-
-	req, err := http.NewRequestWithContext(
-		t.Context(),
-		http.MethodGet,
-		testServer.URL+"/v1/oauth/authorize?"+query.Encode(),
-		nil,
-	)
-	require.NoError(t, err)
-	if ssoCookie != nil {
-		req.AddCookie(ssoCookie)
-	}
-
-	return req
-}
-
-func doAuthorizePKCE(t *testing.T, req *http.Request) *http.Response {
-	t.Helper()
-
-	client := *testClient
-	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
-		// 不跟随重定向，方便测试返回的 Location
-		return http.ErrUseLastResponse
-	}
-
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, resp.Body.Close())
-	})
-
-	return resp
-}
 
 // requireAuthorizeFieldViolation 是测试返回的 json 错误响应的 helper function
 // 注意：不是帮助测试重定向产生错误响应
@@ -123,10 +37,22 @@ func requireAuthorizeFieldViolation(t *testing.T, resp *http.Response, field, de
 	require.Equal(t, description, violation["description"])
 }
 
+// requireRedirectToLogin 测试是否重定向到登录页面，return_to 参数是不是原始请求的 URL
+func requireRedirectToLogin(t *testing.T, resp *http.Response, req *http.Request) {
+	t.Helper()
+
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	location, err := url.Parse(resp.Header.Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, "/login", location.Path)
+	require.Equal(t, req.URL.RequestURI(), location.Query().Get("return_to"))
+}
+
+// TestAuthorizePKCESuccess 测试 OAuth 正常授权流程，返回授权码
 func TestAuthorizePKCESuccess(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
-	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
+	ssoCookie := loginAndRegisterForAuthorizePKCE(t, "oauthuser")
 
 	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, ssoCookie, nil))
 
@@ -152,7 +78,7 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 	require.NoError(t, json.Unmarshal(storedSession, &oauthSession))
 	require.Equal(t, clientID, oauthSession.ClientID)
 	require.Equal(t, testOAuthRedirectURI, oauthSession.RedirectURI)
-	require.Equal(t, testOAuthCodeChallenge, oauthSession.CodeChallenge)
+	require.Equal(t, codeChallengeFromVerifier(testOAuthCodeVerifier), oauthSession.CodeChallenge)
 	require.NotEmpty(t, oauthSession.UserID)
 
 	ttl, err := env.rdsClient.TTL(t.Context(), key).Result()
@@ -161,29 +87,41 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 	require.LessOrEqual(t, ttl, 10*time.Minute)
 }
 
-// 测试不匹配的 redirect_uri 应当返回错误
-func TestAuthorizePKCERedirectURIMismatchDoesNotRedirect(t *testing.T) {
+// TestAuthorizePKCERedirectsToLoginWithoutSSOCookie 测试没有 SSO cookie 的情况，应该重定向到登录页面
+func TestAuthorizePKCERedirectsToLoginWithoutSSOCookie(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
-	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
+	req := newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, nil, nil)
 
-	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(
-		t,
-		clientID,
-		"https://attacker.example/callback",
-		ssoCookie,
-		nil,
-	))
+	resp := doAuthorizePKCE(t, req)
 
-	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	require.Empty(t, resp.Header.Get("Location"))
-	requireAuthorizeFieldViolation(t, resp, "redirect_uri", "Invalid redirect_uri")
+	requireRedirectToLogin(t, resp, req)
 }
 
-// 测试未知的 client_id
+// TestAuthorizePKCERedirectsToLoginWhenSSOCookieNotFound 测试 SSO cookie 在 Redis 中找不到的情况，应该重定向到登录页面
+func TestAuthorizePKCERedirectsToLoginWhenSSOCookieNotFound(t *testing.T) {
+	resetEnv(t)
+	clientID := registerOAuthClient(t, testOAuthRedirectURI)
+	req := newAuthorizePKCERequest(
+		t,
+		clientID,
+		testOAuthRedirectURI,
+		&http.Cookie{
+			Name:  sso.SSOCookieName,
+			Value: "missing-session-id",
+		},
+		nil,
+	)
+
+	resp := doAuthorizePKCE(t, req)
+
+	requireRedirectToLogin(t, resp, req)
+}
+
+// TestAuthorizePKCEUnknownClientDoesNotRedirect 测试未注册的 client_id 应当返回 json 错误响应
 func TestAuthorizePKCEUnknownClientDoesNotRedirect(t *testing.T) {
 	resetEnv(t)
-	ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
+	ssoCookie := loginAndRegisterForAuthorizePKCE(t, "oauthuser")
 
 	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(
 		t,
@@ -202,7 +140,26 @@ func TestAuthorizePKCEUnknownClientDoesNotRedirect(t *testing.T) {
 	requireAuthorizeFieldViolation(t, resp, "client_id", "Invalid client_id")
 }
 
-// 测试重定向 URI 和 client ID 正确，但其他请求参数不合法的情况
+// TestAuthorizePKCERedirectURIMismatchDoesNotRedirect 测试不匹配的 redirect_uri 应当返回错误
+func TestAuthorizePKCERedirectURIMismatchDoesNotRedirect(t *testing.T) {
+	resetEnv(t)
+	clientID := registerOAuthClient(t, testOAuthRedirectURI)
+	ssoCookie := loginAndRegisterForAuthorizePKCE(t, "oauthuser")
+
+	resp := doAuthorizePKCE(t, newAuthorizePKCERequest(
+		t,
+		clientID,
+		"https://attacker.example/callback",
+		ssoCookie,
+		nil,
+	))
+
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Empty(t, resp.Header.Get("Location"))
+	requireAuthorizeFieldViolation(t, resp, "redirect_uri", "Invalid redirect_uri")
+}
+
+// TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI 测试重定向 URI 和 client ID 正确，但其他请求参数不合法的情况
 func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -248,7 +205,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resetEnv(t)
 			clientID := registerOAuthClient(t, testOAuthRedirectURI)
-			ssoCookie := loginForAuthorizePKCE(t, "oauthuser")
+			ssoCookie := loginAndRegisterForAuthorizePKCE(t, "oauthuser")
 
 			resp := doAuthorizePKCE(t, newAuthorizePKCERequest(t, clientID, testOAuthRedirectURI, ssoCookie, tt.change))
 
