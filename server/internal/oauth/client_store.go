@@ -31,7 +31,7 @@ func (s *OAStore) GetClientInfo(ctx context.Context, clientID string) (OAClientI
 	// Redis 缓存没命中，从数据库查询 OAuth 客户端信息
 	clientUUID, err := uuid.Parse(clientID)
 	if err != nil {
-		s.logger.InfoCtx(ctx, "invalid oauth client id", "clientID", clientID, "err", err)
+		s.logger.InfoCtx(ctx, "failed to parse oauth client id", "clientID", clientID, "err", err)
 		return OAClientInfo{}, errOAClientNotFound
 	}
 
@@ -82,7 +82,7 @@ func (s *OAStore) getCachedClientInfo(ctx context.Context, clientID string, cach
 func (s *OAStore) cacheClientInfo(ctx context.Context, cacheKey string, clientInfo OAClientInfo) {
 	data, err := json.Marshal(clientInfo)
 	if err != nil {
-		s.logger.WarnCtx(ctx, "failed to marshal oauth client info for cache", "clientID", clientInfo.ClientID, "err", err)
+		s.logger.ErrorCtx(ctx, "failed to marshal oauth client info for cache, please check OAClientInfo struct", "clientID", clientInfo.ClientID, "err", err)
 		return
 	}
 
