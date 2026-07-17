@@ -180,6 +180,26 @@ func TestAuthorizeUnknownClientReturnsJSONError(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
+// 测试格式不合法的 client_id 返回 JSON 错误
+func TestAuthorizeMalformedClientIDReturnsJSONError(t *testing.T) {
+	store := new(mockOAStore)
+	store.On("GetClientInfo", mock.Anything, "not-a-uuid").
+		Return(OAClientInfo{}, errOAClientNotFound).
+		Once()
+
+	rr := httptest.NewRecorder()
+	req := newAuthorizeRequest(func(query url.Values) {
+		query.Set("client_id", "not-a-uuid")
+	})
+	newOAuthTestHandler(store).authorize(rr, req)
+
+	require.Equal(t, http.StatusBadRequest, rr.Code, "body = %s", rr.Body.String())
+	require.Contains(t, rr.Body.String(), `"field":"client_id"`)
+	require.Contains(t, rr.Body.String(), `"description":"Invalid client_id"`)
+	store.AssertNotCalled(t, "GenCodeStoreSession", mock.Anything, mock.Anything)
+	store.AssertExpectations(t)
+}
+
 // 测试重定向的 URI 与注册的 redirect_uri 不一致的情况
 func TestAuthorizeMismatchedRedirectURIReturnsJSONError(t *testing.T) {
 	store := new(mockOAStore)

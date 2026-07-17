@@ -31,8 +31,8 @@ func (s *OAStore) GetClientInfo(ctx context.Context, clientID string) (OAClientI
 	// Redis 缓存没命中，从数据库查询 OAuth 客户端信息
 	clientUUID, err := uuid.Parse(clientID)
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to parse oauth client id", "clientID", clientID, "err", err)
-		return OAClientInfo{}, err
+		s.logger.InfoCtx(ctx, "invalid oauth client id", "clientID", clientID, "err", err)
+		return OAClientInfo{}, errOAClientNotFound
 	}
 
 	var clientInfo OAClientInfo
