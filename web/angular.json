@@ -4,7 +4,7 @@
   "cli": {
     "packageManager": "pnpm",
     "analytics": "d3973089-7007-49d2-85fe-75c999ba94b8",
-    "schematicCollections": ["angular-eslint"]
+    "schematicCollections": ["angular-eslint", "playwright-ng-schematics"]
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -85,6 +85,17 @@
           "builder": "@angular-eslint/builder:lint",
           "options": {
             "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+          }
+        },
+        "e2e": {
+          "builder": "playwright-ng-schematics:playwright",
+          "options": {
+            "devServerTarget": "enlangmemo-web:serve"
+          },
+          "configurations": {
+            "production": {
+              "devServerTarget": "enlangmemo-web:serve:production"
+            }
           }
         }
       }
