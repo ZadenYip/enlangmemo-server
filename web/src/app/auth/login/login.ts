@@ -17,6 +17,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { Auth as AuthService, LoginRequest, LoginResponse } from '../auth';
 import { MsgService } from '../../shared/msg-service';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -39,6 +40,7 @@ export class Login {
   };
   private auth = inject(AuthService);
   private msg = inject(MsgService);
+  private route = inject(ActivatedRoute);
 
   loginModel = signal(this.INITIAL_MODEL);
 
@@ -78,6 +80,11 @@ export class Login {
   private handleSuccess(response: LoginResponse) {
     this.loginForm().reset({ ...this.INITIAL_MODEL });
     this.msg.success('登录成功', response);
+
+    const returnTo = this.route.snapshot.queryParamMap.get('return_to');
+    if (returnTo !== null) {
+      window.location.assign(returnTo)
+    }
   }
 
   private handleError(error: unknown) {
