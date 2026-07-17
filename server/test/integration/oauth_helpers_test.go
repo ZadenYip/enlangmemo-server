@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
@@ -28,15 +29,17 @@ func codeChallengeFromVerifier(codeVerifier string) string {
 func registerOAuthClient(t *testing.T, redirectURI string) string {
 	t.Helper()
 
-	var clientID string
-	err := env.dbPool.QueryRow(
+	clientUUID, err := uuid.NewV7()
+	require.NoError(t, err)
+	clientID := clientUUID.String()
+	_, err = env.db.ExecContext(
 		t.Context(),
-		`INSERT INTO oauth_clients (name, redirect_uri)
-		 VALUES ($1, $2)
-		 RETURNING id::text`,
+		`INSERT INTO oauth_clients (id, name, redirect_uri)
+		 VALUES (?, ?, ?)`,
+		clientUUID[:],
 		"integration test client",
 		redirectURI,
-	).Scan(&clientID)
+	)
 	require.NoError(t, err)
 
 	return clientID

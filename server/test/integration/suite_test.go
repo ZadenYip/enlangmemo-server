@@ -46,7 +46,7 @@ func resetEnv(t *testing.T) {
 	// 标记当前函数是 Helper，避免堆栈信息有这里。
 	t.Helper()
 
-	// env.reset 替换 dbPool/redisClient，server 也要绑定到新的客户端。
+	// env.reset 清理 MySQL/Redis 状态，server 也要绑定当前客户端。
 	require.NoError(t, env.reset(t.Context()))
 	// 重建 HTTP server
 	startHTTPServer()
@@ -58,8 +58,8 @@ func startHTTPServer() {
 	}
 
 	storeDeps := server.StoreDeps{
-		PGPool: env.dbPool,
-		Rdb:    env.rdsClient,
+		DB:  env.db,
+		Rdb: env.rdsClient,
 	}
 
 	srv := server.New(storeDeps, logging.NewServerLog())

@@ -9,8 +9,8 @@ type Config struct {
 
 func Load() Config {
 	return Config{
-		// postgres://username:password@localhost:5432/database_name
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:enlangmemo@localhost:5432/enlangmemo"),
+		// username:password@tcp(localhost:3306)/database_name?parseTime=true
+		DatabaseURL: getEnv("DATABASE_URL", "enlangmemo:enlangmemo@tcp(localhost:3306)/enlangmemo?parseTime=true"),
 		// redis://<user>:<pass>@localhost:6379/<db>
 		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379/0"),
 	}

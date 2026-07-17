@@ -2,8 +2,8 @@ package oauth
 
 import (
 	"context"
+	"database/sql"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
@@ -18,14 +18,14 @@ type OAStorer interface {
 }
 
 type OAStore struct {
-	pgpool *pgxpool.Pool
+	db     *sql.DB
 	rdb    *redis.Client
 	logger logging.Logger
 }
 
-func NewOAStore(pgpool *pgxpool.Pool, rdb *redis.Client, logger logging.Logger) *OAStore {
+func NewOAStore(db *sql.DB, rdb *redis.Client, logger logging.Logger) *OAStore {
 	return &OAStore{
-		pgpool: pgpool,
+		db:     db,
 		rdb:    rdb,
 		logger: logger,
 	}
