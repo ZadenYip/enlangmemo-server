@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zadenyip/enlangmemo-server/internal/apps/enlangmemo"
 	"github.com/zadenyip/enlangmemo-server/internal/auth"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
@@ -13,9 +14,10 @@ import (
 )
 
 type Server struct {
-	log          logging.Logger
-	authHandler  *auth.AuthHandler
-	oauthHandler *oauth.OAuthHandler
+	log               logging.Logger
+	authHandler       *auth.AuthHandler
+	oauthHandler      *oauth.OAuthHandler
+	enlangmemoHandler *enlangmemo.Handler
 }
 
 type StoreDeps struct {
@@ -40,10 +42,13 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 	oaStore := oauth.NewOAStore(storeDeps.DB, storeDeps.Rdb, logger)
 	oauthHandler := oauth.NewOAuthHandler(oaStore, ssoStore, logger)
 
+	enlangmemoHandler := enlangmemo.NewHandler(oaStore, userStore, logger)
+
 	return &Server{
-		log:          logger,
-		authHandler:  authHandler,
-		oauthHandler: oauthHandler,
+		log:               logger,
+		authHandler:       authHandler,
+		oauthHandler:      oauthHandler,
+		enlangmemoHandler: enlangmemoHandler,
 	}
 }
 
@@ -58,6 +63,9 @@ func (srv *Server) routes() http.Handler {
 
 	// 注册授权路由
 	srv.oauthHandler.RegisterRoutes(mux)
+
+	// 注册 EnLangMemo 应用路由
+	srv.enlangmemoHandler.RegisterRoutes(mux)
 	return mux
 }
 
