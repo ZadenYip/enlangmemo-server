@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -60,26 +59,4 @@ func (store *MySQLUserStore) GetPasswordHash(ctx context.Context, loginID string
 	}
 
 	return userUUID.String(), storedPasswordHash, nil
-}
-
-func (store *MySQLUserStore) GetUserProfile(ctx context.Context, userID string) (UserProfile, error) {
-	userUUID, err := uuid.Parse(userID)
-	if err != nil {
-		return UserProfile{}, fmt.Errorf("%w: %v", ErrInvalidUserID, err)
-	}
-
-	const selectUser = `
-		SELECT login_id, nickname FROM users WHERE id = ?
-	`
-
-	profile := UserProfile{UserID: userUUID.String()}
-	err = store.db.QueryRowContext(ctx, selectUser, userUUID[:]).Scan(&profile.LoginID, &profile.Nickname)
-	if errors.Is(err, sql.ErrNoRows) {
-		return UserProfile{}, ErrUserNotFound
-	}
-	if err != nil {
-		return UserProfile{}, err
-	}
-
-	return profile, nil
 }

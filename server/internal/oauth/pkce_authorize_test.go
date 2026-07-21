@@ -51,11 +51,6 @@ func (s *mockOAStore) GenAccessToken(ctx context.Context, userID string) (string
 	return args.String(0), args.Error(1)
 }
 
-func (s *mockOAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
-	args := s.Called(ctx, accessToken)
-	return args.String(0), args.Error(1)
-}
-
 func (s *mockSSOStore) Create(ctx context.Context, userID string) (string, error) {
 	args := s.Called(ctx, userID)
 	return args.String(0), args.Error(1)

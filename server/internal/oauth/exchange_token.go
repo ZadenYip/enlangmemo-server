@@ -53,7 +53,7 @@ type tokenResponse struct {
 
 func (h *OAuthHandler) responseWithAccessToken(w http.ResponseWriter, r *http.Request, session OAuthSession) {
 
-	token, err := h.oaStore.GenAccessToken(r.Context(), session.UserID)
+	token, err := h.oaStore.GenAccessToken(r.Context(), session.ClientID)
 
 	if err != nil {
 		h.log.ErrorCtx(r.Context(), "failed to generate access token", "err", err)
