@@ -15,8 +15,6 @@ type OAStorer interface {
 	GenCodeStoreSession(ctx context.Context, authoInfo AuthorizationInfo) (string, error)
 	ConsumeCodeSession(ctx context.Context, authCode string) (OAuthSession, error)
 	GenAccessToken(ctx context.Context, userID string) (string, error)
-	// 根据访问令牌获取用户 ID
-	GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error)
 }
 
 type OAStore struct {
