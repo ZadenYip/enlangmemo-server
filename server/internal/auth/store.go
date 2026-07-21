@@ -10,6 +10,12 @@ type UserStore interface {
 	GetPasswordHash(ctx context.Context, loginID string) (string, string, error)
 }
 
+type UserProfile struct {
+	UserID   string
+	LoginID  string
+	Nickname string
+}
+
 type SSOStore interface {
 	Create(ctx context.Context, userID string) (string, error)
 	Logout(ctx context.Context, sessionID string) (int64, error)
@@ -17,3 +23,4 @@ type SSOStore interface {
 
 var ErrUserAlreadyExists = errors.New("user already exists")
 var ErrUserNotFound = errors.New("user not found")
+var ErrInvalidUserID = errors.New("invalid user ID")
