@@ -1,2 +1,4 @@
-/docker/pg_data
+/docker/mysql_data
 /docker/redis_data
+
+**/*.pem
