@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Node / Angular
+web/node_modules
+web/dist
+web/.angular
+web/playwright-report
+web/test-results
+web/coverage
+
+# Go
+server/bin
+server/coverage.out
+server/*.test
+
+# Docker local data
+docker/mysql_data
+docker/redis_data
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db

@@ -1,0 +1,35 @@
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: web/docker/Dockerfile
+    container_name: dev-enlangmemo-web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      server:
+        condition: service_healthy
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: dev-enlangmemo-server
+    environment:
+      DATABASE_URL: enlangmemo:enlangmemo@tcp(mysql:3306)/enlangmemo?parseTime=true
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 60s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
