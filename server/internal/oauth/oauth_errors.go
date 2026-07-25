@@ -1,5 +1,11 @@
 package oauth
 
+import (
+	"net/http"
+
+	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+)
+
 // https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1
 type OAAuthorErr = string
 
@@ -24,3 +30,11 @@ const (
 	exUnsupportedGrant   OAExchangeTokenErr = "unsupported_grant_type"
 	exInvalidScope       OAExchangeTokenErr = "invalid_scope"
 )
+
+// responseBadReqErr 用来响应客户端请求错误，遵循 RFC 6749 Section 5.2 的规范
+func (h *OAuthHandler) responseBadReqErr(w http.ResponseWriter, errCode OAExchangeTokenErr, description string) {
+	httpjson.ResponseJSON(w, http.StatusBadRequest, tokenErrorResponse{
+		Error:            string(errCode),
+		ErrorDescription: description,
+	}, h.log.Error())
+}

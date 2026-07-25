@@ -19,14 +19,14 @@ func (h *OAuthHandler) exchangeToken(w http.ResponseWriter, r *http.Request) {
 
 	// 验证请求参数是否有效
 	if invalid, description := isInvalidForm(formData); invalid {
-		h.responseExchangeErr(w, exInvalidRequest, description)
+		h.responseBadReqErr(w, exInvalidRequest, description)
 		return
 	}
 
 	session, err := h.oaStore.ConsumeCodeSession(r.Context(), formData.code)
 	switch {
 	case errors.Is(err, errOASessionNotFound):
-		h.responseExchangeErr(w, exInvalidGrant, "Invalid authorization code")
+		h.responseBadReqErr(w, exInvalidGrant, "Invalid authorization code")
 		return
 	case err != nil:
 		h.log.ErrorCtx(r.Context(), "failed to get oauth session", "err", err)
@@ -36,7 +36,7 @@ func (h *OAuthHandler) exchangeToken(w http.ResponseWriter, r *http.Request) {
 
 	// 验证 code 与 session 的绑定关系
 	if invalid, description := invalidCodeBinding(formData, session); invalid {
-		h.responseExchangeErr(w, exInvalidGrant, description)
+		h.responseBadReqErr(w, exInvalidGrant, description)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (h *OAuthHandler) extractFormData(w http.ResponseWriter, r *http.Request) (
 	form := r.PostForm
 	if form == nil {
 		h.log.InfoCtx(r.Context(), "No form data found in the request")
-		h.responseExchangeErr(w, authorInvalidRequest, "No form data found in the request")
+		h.responseBadReqErr(w, authorInvalidRequest, "No form data found in the request")
 		return tokenFormData{}, false
 	}
 
@@ -183,11 +183,4 @@ func invalidCodeBinding(form tokenFormData, session OAuthSession) (invalid bool,
 type tokenErrorResponse struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description,omitempty"`
-}
-
-func (h *OAuthHandler) responseExchangeErr(w http.ResponseWriter, errCode OAExchangeTokenErr, description string) {
-	httpjson.ResponseJSON(w, http.StatusBadRequest, tokenErrorResponse{
-		Error:            string(errCode),
-		ErrorDescription: description,
-	}, h.log.Error())
 }
