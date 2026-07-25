@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -16,7 +17,7 @@ const (
 
 var ErrAccessTokenNotFound = errors.New("access token not found")
 
-func (s *OAStore) GenAccessToken(ctx context.Context, userID string) (string, error) {
+func (s *OAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
 	const maxAttempts = 3
 	for range maxAttempts {
 		accessToken, err := session.NewID()
@@ -24,7 +25,16 @@ func (s *OAStore) GenAccessToken(ctx context.Context, userID string) (string, er
 			return "", err
 		}
 
-		ok, err := s.rdb.SetNX(ctx, accessTokenPrefix+accessToken, userID, time.Hour*accessTokenTTLHours).Result()
+		tokenInfo, err := json.Marshal(TokenInfo{
+			UserID:   userID,
+			ClientID: clientID,
+		})
+
+		if err != nil {
+			return "", err
+		}
+
+		ok, err := s.rdb.SetNX(ctx, accessTokenPrefix+accessToken, tokenInfo, time.Hour*accessTokenTTLHours).Result()
 
 		if err != nil {
 			return "", err
@@ -34,19 +44,38 @@ func (s *OAStore) GenAccessToken(ctx context.Context, userID string) (string, er
 			return accessToken, nil
 		}
 
-		s.logger.WarnCtx(ctx, "access token collision, retrying", "accessToken", accessToken)
+		s.logger.WarnCtx(ctx, "access token collision, retrying")
 	}
 
 	return "", errors.New("access token collision")
 }
 
-func (s *OAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
-	userID, err := s.rdb.Get(ctx, accessTokenPrefix+accessToken).Result()
+type TokenInfo struct {
+	UserID   string `json:"user_id"`
+	ClientID string `json:"client_id"`
+}
+
+func (s *OAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken string) (TokenInfo, error) {
+	tokenInfoJSON, err := s.rdb.Get(ctx, accessTokenPrefix+accessToken).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return "", ErrAccessTokenNotFound
+			return TokenInfo{}, ErrAccessTokenNotFound
 		}
+		return TokenInfo{}, err
+	}
+
+	var tokenInfo TokenInfo
+	if err := json.Unmarshal([]byte(tokenInfoJSON), &tokenInfo); err != nil {
+		return TokenInfo{}, err
+	}
+
+	return tokenInfo, nil
+}
+
+func (s *OAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
+	tokenInfo, err := s.GetTokenInfoByAccessToken(ctx, accessToken)
+	if err != nil {
 		return "", err
 	}
-	return userID, nil
+	return tokenInfo.UserID, nil
 }
