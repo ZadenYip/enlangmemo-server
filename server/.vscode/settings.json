@@ -1,0 +1,9 @@
+{
+    // redis 脚本自带了 redis、KEYS、ARGV、cjson 全局变量
+    "Lua.diagnostics.globals": [
+        "redis",
+        "KEYS",
+        "ARGV",
+        "cjson"
+    ]
+}

@@ -46,14 +46,24 @@ func (s *mockOAStore) ConsumeCodeSession(ctx context.Context, authCode string) (
 	return args.Get(0).(OAuthSession), args.Error(1)
 }
 
-func (s *mockOAStore) GenAccessToken(ctx context.Context, userID string) (string, error) {
-	args := s.Called(ctx, userID)
+func (s *mockOAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
+	args := s.Called(ctx, clientID, userID)
 	return args.String(0), args.Error(1)
 }
 
 func (s *mockOAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
 	args := s.Called(ctx, accessToken)
 	return args.String(0), args.Error(1)
+}
+
+func (s *mockOAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken string) (TokenInfo, error) {
+	args := s.Called(ctx, accessToken)
+	return args.Get(0).(TokenInfo), args.Error(1)
+}
+
+func (s *mockOAStore) RevokeAccessToken(ctx context.Context, accessToken, clientID string) error {
+	args := s.Called(ctx, accessToken, clientID)
+	return args.Error(0)
 }
 
 func (s *mockSSOStore) Create(ctx context.Context, userID string) (string, error) {
