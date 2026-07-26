@@ -43,7 +43,10 @@ func (h *OAuthHandler) responseBadReqErr(w http.ResponseWriter, errCode OAErr, d
 }
 
 // responseSrvInternalErr 用来响应服务器内部错误，遵循 RFC 6749 Section 5.2 的错误代码
-// 不过这里是响应 JSON 格式，对于要求返回 JSON 格式的响应，RFC 6749 并没说是否要遵循 5.2 错误代码
+//
+// 虽然对于返回 JSON 格式的响应，RFC 6749 并没说是否要遵循 5.2 错误代码，但是理解是返回 server_error 是合理的。
+//
+// 响应 JSON 格式
 func (h *OAuthHandler) responseSrvInternalErr(w http.ResponseWriter) {
 	httpjson.ResponseJSON(w, http.StatusInternalServerError, tokenErrorResponse{
 		Error:            string(authorServerError),

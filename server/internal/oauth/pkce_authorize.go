@@ -122,6 +122,10 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 
 // isInValidRequest 验证请求参数是否有效，如果无效则直接响应错误并返回 false
 func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, req *authorizeRequest) bool {
+	// TODO 未来可以加多一个网页，让用户选择是否允许授权，如果不允许则返回 access_denied 错误
+	// 不过这个与安全性关系不大，第一方客户端是可信的，回调 URL 也保证返回的 code 是给正确的客户端的
+	// 假设客户端是恶意客户端，伪装成真的第一方客户端，此时即使有授权窗口，用户也误以为是授权给了正确的客户端
+	// 因此安全性上影响不大
 	req.CheckField(req.clientID != "", "client_id", "client_id is required")
 	req.CheckField(req.redirectURI != "", "redirect_uri", "redirect_uri is required")
 	if !req.Valid() {

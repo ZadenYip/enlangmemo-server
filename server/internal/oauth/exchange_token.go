@@ -7,12 +7,16 @@ import (
 	"net/http"
 	"unicode/utf8"
 
-	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 )
 
 func (h *OAuthHandler) exchangeToken(w http.ResponseWriter, r *http.Request) {
-	formData, ok := h.extractFormData(w, r)
+
+	// RFC 6749 5.1 要求设置下面两个 Header
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+
+	formData, ok := h.extractExchangeForm(w, r)
 	if !ok {
 		return
 	}
@@ -30,7 +34,7 @@ func (h *OAuthHandler) exchangeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		h.log.ErrorCtx(r.Context(), "failed to get oauth session", "err", err)
-		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		h.responseSrvInternalErr(w)
 		return
 	}
 
@@ -57,10 +61,7 @@ func (h *OAuthHandler) responseWithAccessToken(w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		h.log.ErrorCtx(r.Context(), "failed to generate access token", "err", err)
-		httpjson.ResponseJSON(w, http.StatusInternalServerError, tokenErrorResponse{
-			Error:            string(authorServerError),
-			ErrorDescription: "Internal server error",
-		}, h.log.Error())
+		h.responseSrvInternalErr(w)
 		return
 	}
 
@@ -69,10 +70,6 @@ func (h *OAuthHandler) responseWithAccessToken(w http.ResponseWriter, r *http.Re
 		TokenType:   "bearer",
 		ExpiresIn:   3600 * accessTokenTTLHours,
 	}
-
-	// RFC 6749 5.1 要求设置下面两个 Header
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Pragma", "no-cache")
 
 	httpjson.ResponseJSON(w, http.StatusOK, tokenResponse, h.log.Error())
 }
@@ -85,7 +82,10 @@ type tokenFormData struct {
 	codeVerifier string
 }
 
-func (h *OAuthHandler) extractFormData(w http.ResponseWriter, r *http.Request) (tokenFormData, bool) {
+// extractExchangeForm 从请求中提取表单数据，如果解析失败则直接响应错误并返回 false
+//
+// 注意：函数里面会直接响应错误，所以调用的时候不需要再响应错误
+func (h *OAuthHandler) extractExchangeForm(w http.ResponseWriter, r *http.Request) (tokenFormData, bool) {
 	err := r.ParseForm()
 	if err != nil {
 		return tokenFormData{}, false
