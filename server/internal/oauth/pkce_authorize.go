@@ -230,7 +230,7 @@ func (h *OAuthHandler) responseValidErrInJson(w http.ResponseWriter, req *author
 }
 
 type OAErrorRedirect struct {
-	errorCode        OAAuthorErr
+	errorCode        OAErr
 	state            string
 	redirectURI      string
 	errorDescription string

@@ -66,3 +66,22 @@ func argsWithTrace(ctx context.Context, args []any) []any {
 
 	return append(args, "traceparent", traceID)
 }
+
+// MaskSecret 用于在日志中隐藏敏感信息，只展示前 4 个字符和后 4 个字符，中间用星号替代
+//
+// 返回的字符串格式为：前 4 个字符 + "***" + 后 4 个字符
+func MaskSecret(value string) string {
+	return MaskSecretWith(value, 4, 4)
+}
+
+// MaskSecretWith 用于在日志中隐藏敏感信息
+//
+// 如果 value 的长度小于等于 prefix + suffix，则直接返回 "***"
+// 否则返回前 prefix 个字符 + "***" + 后 suffix 个字符
+// 例如：MaskSecretWith("1234567890", 4, 4) => "1234***7890"
+func MaskSecretWith(value string, prefix, suffix int) string {
+	if len(value) <= prefix+suffix {
+		return "***"
+	}
+	return value[:prefix] + "***" + value[len(value)-suffix:]
+}

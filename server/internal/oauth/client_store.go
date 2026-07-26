@@ -21,6 +21,10 @@ const oaClientInfoCacheTTL = 10 * time.Minute
 var errOAClientNotFound = errors.New("oauth client not found")
 
 // GetClientInfo 会从 Redis 获取 OAuth 客户端信息，如果缓存不存在，则从数据库查询，并将结果缓存到 Redis
+//
+// 如果客户端不存在，则返回 errOAClientNotFound error
+//
+// 如果查询数据库或缓存时发生其他错误，返回值则为空的 OAClientInfo 结构体和相应的错误
 func (s *OAStore) GetClientInfo(ctx context.Context, clientID string) (OAClientInfo, error) {
 	cacheKey := "oauth:client:" + clientID
 
