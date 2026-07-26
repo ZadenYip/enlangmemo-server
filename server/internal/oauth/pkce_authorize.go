@@ -50,13 +50,19 @@ func (h *OAuthHandler) authorize(w http.ResponseWriter, r *http.Request) {
 	}
 	authorizeReq.userID = userID
 
-	if h.isInValidRequest(w, r, &authorizeReq) {
+	if h.rejectInvalidRequest(w, r, &authorizeReq) {
 		return
 	}
 
 	authCode, err := h.oaStore.GenCodeStoreSession(r.Context(), authorizeReq.AuthorizationInfo)
 	if err != nil {
-		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		h.log.ErrorCtx(r.Context(), "failed to generate authorization code and store session", "err", err)
+		h.redirectWithErr(w, r, OAErrorRedirect{
+			errCode:          authorServerError,
+			state:            authorizeReq.state,
+			redirectURI:      authorizeReq.redirectURI,
+			errorDescription: "Internal server error",
+		})
 		return
 	}
 
@@ -120,8 +126,10 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, loginURL.String(), http.StatusSeeOther)
 }
 
-// isInValidRequest 验证请求参数是否有效，如果无效则直接响应错误并返回 false
-func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, req *authorizeRequest) bool {
+// rejectInvalidRequest 验证请求参数是否有效，如果无效则直接响应错误并返回 true，否则返回 false
+//
+// 这里包括参数是不是合法，不只是格式
+func (h *OAuthHandler) rejectInvalidRequest(w http.ResponseWriter, r *http.Request, req *authorizeRequest) bool {
 	// TODO 未来可以加多一个网页，让用户选择是否允许授权，如果不允许则返回 access_denied 错误
 	// 不过这个与安全性关系不大，第一方客户端是可信的，回调 URL 也保证返回的 code 是给正确的客户端的
 	// 假设客户端是恶意客户端，伪装成真的第一方客户端，此时即使有授权窗口，用户也误以为是授权给了正确的客户端
@@ -145,7 +153,7 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	case err != nil:
 		// 其他错误
 		h.log.ErrorCtx(r.Context(), "failed to get oauth client info", "clientID", req.clientID, "err", err)
-		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		h.responseSrvInternalErr(w)
 		return true
 	}
 
@@ -160,8 +168,8 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 
 	// 下面得用重定向的 URI 查询组件重定向
 	// 验证 response_type 是否符合 PKCE 要求的 "code"
-	errorRedirect := OAErrorRedirect{
-		errorCode:   authorInvalidRequest,
+	errRedirect := OAErrorRedirect{
+		errCode:     authorInvalidRequest,
 		state:       req.state,
 		redirectURI: clientConfig.RedirectURI,
 	}
@@ -170,17 +178,18 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	req.CheckField(req.responseType == "code", "response_type", "response_type must be 'code'")
 	if !req.Valid() {
 		h.log.InfoCtx(r.Context(), "invalid response_type", "responseType", req.responseType)
-		errorRedirect.errorDescription = "response_type must be 'code'"
-		h.redirectWithErr(w, r, errorRedirect)
+		errRedirect.errorDescription = "response_type must be 'code'"
+		errRedirect.errCode = authorUnsupportedResponseType
+		h.redirectWithErr(w, r, errRedirect)
 		return true
 	}
 
-	// 强制要求 state 参数必须存在（协议安全要求：防止 CSRF 攻击）
+	// 这里强制要求 state 参数必须存在（防止 CSRF 攻击），尽管 RFC 6749 允许 state 参数可选
 	req.CheckField(req.state != "", "state", "state is required")
 	if !req.Valid() {
 		h.log.InfoCtx(r.Context(), "invalid state", "state", req.state)
-		errorRedirect.errorDescription = "state is required"
-		h.redirectWithErr(w, r, errorRedirect)
+		errRedirect.errorDescription = "state is required"
+		h.redirectWithErr(w, r, errRedirect)
 		return true
 	}
 
@@ -188,8 +197,8 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	req.CheckField(req.codeChallenge != "", "code_challenge", "code_challenge is required")
 	if !req.Valid() {
 		h.log.InfoCtx(r.Context(), "invalid code_challenge", "code_challenge", req.codeChallenge)
-		errorRedirect.errorDescription = "code_challenge is required"
-		h.redirectWithErr(w, r, errorRedirect)
+		errRedirect.errorDescription = "code_challenge is required"
+		h.redirectWithErr(w, r, errRedirect)
 		return true
 	}
 
@@ -197,8 +206,8 @@ func (h *OAuthHandler) isInValidRequest(w http.ResponseWriter, r *http.Request, 
 	req.CheckField(req.codeChallengeMethod == "S256", "code_challenge_method", "code_challenge_method must be 'S256'")
 	if !req.Valid() {
 		h.log.InfoCtx(r.Context(), "invalid code_challenge_method", "code_challenge_method", req.codeChallengeMethod)
-		errorRedirect.errorDescription = "code_challenge_method must be 'S256'"
-		h.redirectWithErr(w, r, errorRedirect)
+		errRedirect.errorDescription = "code_challenge_method must be 'S256'"
+		h.redirectWithErr(w, r, errRedirect)
 		return true
 	}
 
@@ -234,7 +243,7 @@ func (h *OAuthHandler) responseValidErrInJson(w http.ResponseWriter, req *author
 }
 
 type OAErrorRedirect struct {
-	errorCode        OAErr
+	errCode          OAErr
 	state            string
 	redirectURI      string
 	errorDescription string
@@ -244,12 +253,13 @@ type OAErrorRedirect struct {
 func (h *OAuthHandler) redirectWithErr(w http.ResponseWriter, r *http.Request, errorDirect OAErrorRedirect) {
 	u, err := url.Parse(errorDirect.redirectURI)
 	if err != nil {
+		// redirectURI 解析失败，无法重定向，直接返回 500 错误
 		h.log.ErrorCtx(r.Context(), "failed to parse redirect_uri", "redirectURI", errorDirect.redirectURI, "err", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
 		return
 	}
 	values := u.Query()
-	setParams(values, "error", string(errorDirect.errorCode))
+	setParams(values, "error", string(errorDirect.errCode))
 	setParams(values, "state", errorDirect.state)
 	setParams(values, "error_description", errorDirect.errorDescription)
 

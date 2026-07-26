@@ -164,6 +164,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 	tests := []struct {
 		name             string
 		change           func(url.Values)
+		errorCode        string
 		errorDescription string
 		expectState      string
 	}{
@@ -173,6 +174,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 				// 设置为错的 response_type，RFC 6749 要求必须是 "code"
 				query.Set("response_type", "token")
 			},
+			errorCode:        "unsupported_response_type",
 			errorDescription: "response_type must be 'code'",
 			expectState:      testOAuthState,
 		},
@@ -181,6 +183,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 			change: func(query url.Values) {
 				query.Del("state")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "state is required",
 		},
 		{
@@ -188,6 +191,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 			change: func(query url.Values) {
 				query.Del("code_challenge")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "code_challenge is required",
 			expectState:      testOAuthState,
 		},
@@ -196,6 +200,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 			change: func(query url.Values) {
 				query.Set("code_challenge_method", "plain")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "code_challenge_method must be 'S256'",
 			expectState:      testOAuthState,
 		},
@@ -216,7 +221,7 @@ func TestAuthorizePKCEInvalidRequestRedirectsToRegisteredURI(t *testing.T) {
 			require.Equal(t, "client.example", location.Host)
 			require.Equal(t, "/callback", location.Path)
 			require.Equal(t, "value", location.Query().Get("existing"))
-			require.Equal(t, "invalid_request", location.Query().Get("error"))
+			require.Equal(t, tt.errorCode, location.Query().Get("error"))
 			require.Equal(t, tt.errorDescription, location.Query().Get("error_description"))
 			require.Equal(t, tt.expectState, location.Query().Get("state"))
 		})

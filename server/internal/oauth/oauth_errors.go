@@ -13,7 +13,7 @@ const (
 	authorInvalidRequest OAErr = "invalid_request"
 	// authorUnauthorizedClient      OAErr = "unauthorized_client"
 	// authorAccessDenied            OAErr = "access_denied"
-	// authorUnsupportedResponseType OAErr = "unsupported_response_type"
+	authorUnsupportedResponseType OAErr = "unsupported_response_type"
 	// authorInvalidScope            OAErr = "invalid_scope"
 	authorServerError OAErr = "server_error"
 	// authorTemporarilyUnavailable  OAErr = "temporarily_unavailable"
