@@ -47,6 +47,8 @@ func requireTokenError(t *testing.T, rr *httptest.ResponseRecorder, description 
 	t.Helper()
 
 	require.Equal(t, http.StatusBadRequest, rr.Code, "body = %s", rr.Body.String())
+	require.Equal(t, "no-store", rr.Header().Get("Cache-Control"))
+	require.Equal(t, "no-cache", rr.Header().Get("Pragma"))
 	require.JSONEq(t, `{
 		"error": "invalid_request",
 		"error_description": `+description+`

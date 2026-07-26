@@ -51,11 +51,19 @@ func newExchangeTokenForm(clientID, authCode, redirectURI, codeVerifier string) 
 	}
 }
 
+func requireNoStoreTokenHeaders(t *testing.T, resp *http.Response) {
+	t.Helper()
+
+	require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
+	require.Equal(t, "no-cache", resp.Header.Get("Pragma"))
+}
+
 // requireExchangeTokenError 是测试返回的 json 错误响应的 helper function
 func requireExchangeTokenError(t *testing.T, resp *http.Response, errorCode, description string) {
 	t.Helper()
 
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	requireNoStoreTokenHeaders(t, resp)
 
 	var body struct {
 		Error            string `json:"error"`
@@ -75,8 +83,7 @@ func TestExchangeTokenSuccess(t *testing.T) {
 	resp := doExchangeToken(t, form)
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
-	require.Equal(t, "no-cache", resp.Header.Get("Pragma"))
+	requireNoStoreTokenHeaders(t, resp)
 
 	var body struct {
 		AccessToken string `json:"access_token"`

@@ -223,6 +223,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 	tests := []struct {
 		name             string
 		change           func(url.Values)
+		errorCode        string
 		errorDescription string
 		expectState      string
 	}{
@@ -232,6 +233,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 				// 设置非法的 response_type，根据 RFC 文档正确的值是 "code"
 				query.Set("response_type", "token")
 			},
+			errorCode:        "unsupported_response_type",
 			errorDescription: "response_type must be 'code'",
 			expectState:      testState,
 		},
@@ -241,6 +243,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 				// 删除 state 参数，实际实现要求客户端必须传 state 参数（尽管可选）
 				query.Del("state")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "state is required",
 		},
 		{
@@ -249,6 +252,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 				// 删除 code_challenge 参数，文档要求 PKCE 必须传这个参数
 				query.Del("code_challenge")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "code_challenge is required",
 			expectState:      testState,
 		},
@@ -258,6 +262,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 				// 实现没有支持 plain 方法，要求必须是 S256
 				query.Set("code_challenge_method", "plain")
 			},
+			errorCode:        "invalid_request",
 			errorDescription: "code_challenge_method must be 'S256'",
 			expectState:      testState,
 		},
@@ -280,7 +285,7 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 			require.Equal(t, "client.example", location.Host)
 			require.Equal(t, "/callback", location.Path)
 			require.Equal(t, "test", location.Query().Get("source"))
-			require.Equal(t, "invalid_request", location.Query().Get("error"))
+			require.Equal(t, tt.errorCode, location.Query().Get("error"))
 			require.Equal(t, tt.errorDescription, location.Query().Get("error_description"))
 			require.Equal(t, tt.expectState, location.Query().Get("state"))
 			store.AssertNotCalled(t, "GenCodeStoreSession", mock.Anything, mock.Anything)
@@ -290,49 +295,45 @@ func TestAuthorizeInvalidPKCERequestRedirectsWithError(t *testing.T) {
 }
 
 func TestAuthorizeStoreErrorsReturnInternalError(t *testing.T) {
-	tests := []struct {
-		name  string
-		setup func(*mockOAStore)
-	}{
-		{
-			name: "get client info",
-			setup: func(store *mockOAStore) {
-				store.On("GetClientInfo", mock.Anything, testClientID).
-					Return(OAClientInfo{}, errors.New("database unavailable")).
-					Once()
-			},
-		},
-		{
-			name: "generate authorization code",
-			setup: func(store *mockOAStore) {
-				store.On("GetClientInfo", mock.Anything, testClientID).
-					Return(OAClientInfo{ClientID: testClientID, RedirectURI: testRedirectURI}, nil).
-					Once()
-				store.On("GenCodeStoreSession", mock.Anything, mock.Anything).
-					Return("", errors.New("redis unavailable")).
-					Once()
-			},
-		},
-	}
+	t.Run("get client info", func(t *testing.T) {
+		store := new(mockOAStore)
+		store.On("GetClientInfo", mock.Anything, testClientID).
+			Return(OAClientInfo{}, errors.New("database unavailable")).
+			Once()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			store := new(mockOAStore)
-			tt.setup(store)
+		rr := httptest.NewRecorder()
+		newOAuthTestHandler(store).authorize(rr, newAuthorizeRequest(nil))
 
-			rr := httptest.NewRecorder()
-			newOAuthTestHandler(store).authorize(rr, newAuthorizeRequest(nil))
+		require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
+		require.JSONEq(t, `{
+			"error": "server_error",
+			"error_description": "Internal server error"
+		}`, rr.Body.String())
+		store.AssertExpectations(t)
+	})
 
-			require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
-			require.JSONEq(t, `{
-				"error": {
-					"code": 500,
-					"message": "Internal server error",
-					"status": "INTERNAL",
-					"details": []
-				}
-			}`, rr.Body.String())
-			store.AssertExpectations(t)
-		})
-	}
+	t.Run("generate authorization code", func(t *testing.T) {
+		store := new(mockOAStore)
+		store.On("GetClientInfo", mock.Anything, testClientID).
+			Return(OAClientInfo{ClientID: testClientID, RedirectURI: testRedirectURI}, nil).
+			Once()
+		store.On("GenCodeStoreSession", mock.Anything, mock.Anything).
+			Return("", errors.New("redis unavailable")).
+			Once()
+
+		rr := httptest.NewRecorder()
+		newOAuthTestHandler(store).authorize(rr, newAuthorizeRequest(nil))
+
+		require.Equal(t, http.StatusFound, rr.Code, "body = %s", rr.Body.String())
+		location, err := url.Parse(rr.Header().Get("Location"))
+		require.NoError(t, err)
+		require.Equal(t, "https", location.Scheme)
+		require.Equal(t, "client.example", location.Host)
+		require.Equal(t, "/callback", location.Path)
+		require.Equal(t, "test", location.Query().Get("source"))
+		require.Equal(t, "server_error", location.Query().Get("error"))
+		require.Equal(t, "Internal server error", location.Query().Get("error_description"))
+		require.Equal(t, testState, location.Query().Get("state"))
+		store.AssertExpectations(t)
+	})
 }
