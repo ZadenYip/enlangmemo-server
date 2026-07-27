@@ -67,11 +67,8 @@ func (h *OAuthHandler) extractRevokeForm(w http.ResponseWriter, r *http.Request)
 		return revokeForm{}, false
 	}
 
+	// 使用 r.ParseForm() 后，r.PostForm 不会为 nil
 	pForm := r.PostForm
-	if pForm == nil {
-		return revokeForm{}, false
-	}
-
 	revokeForm := revokeForm{
 		Token:    pForm.Get("token"),
 		ClientID: pForm.Get("client_id"),
