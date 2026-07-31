@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/google/uuid"
 )
 
 type MySQLUserStore struct {
@@ -20,16 +20,10 @@ func NewMySQLUserStore(db *sql.DB) *MySQLUserStore {
 
 func (store *MySQLUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
 	const insertUser = `
-		INSERT INTO users (id, login_id, nickname, password_hash) VALUES (?, ?, ?, ?)
+		INSERT INTO users (login_id, nickname, password_hash) VALUES (?, ?, ?)
 	`
 
-	userUUID, err := uuid.NewV7()
-	if err != nil {
-		return "", err
-	}
-	userID := userUUID.String()
-
-	_, err = store.db.ExecContext(ctx, insertUser, userUUID[:], loginID, nickname, passwordHash)
+	result, err := store.db.ExecContext(ctx, insertUser, loginID, nickname, passwordHash)
 	if err != nil {
 		var mysqlErr *mysql.MySQLError
 		// duplicate entry 1062: https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html#error_er_dup_entry
@@ -41,7 +35,12 @@ func (store *MySQLUserStore) CreateUser(ctx context.Context, loginID string, nic
 		return "", err
 	}
 
-	return userID, nil
+	userID, err := result.LastInsertId()
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.FormatInt(userID, 10), nil
 }
 
 func (store *MySQLUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
@@ -49,9 +48,9 @@ func (store *MySQLUserStore) GetPasswordHash(ctx context.Context, loginID string
 		SELECT id, password_hash FROM users WHERE login_id = ?
 	`
 
-	var userUUID uuid.UUID
+	var userID uint64
 	var storedPasswordHash string
-	err := store.db.QueryRowContext(ctx, selectUser, loginID).Scan(&userUUID, &storedPasswordHash)
+	err := store.db.QueryRowContext(ctx, selectUser, loginID).Scan(&userID, &storedPasswordHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", "", ErrUserNotFound
 	}
@@ -59,11 +58,11 @@ func (store *MySQLUserStore) GetPasswordHash(ctx context.Context, loginID string
 		return "", "", err
 	}
 
-	return userUUID.String(), storedPasswordHash, nil
+	return strconv.FormatUint(userID, 10), storedPasswordHash, nil
 }
 
 func (store *MySQLUserStore) GetUserProfile(ctx context.Context, userID string) (UserProfile, error) {
-	userUUID, err := uuid.Parse(userID)
+	parsedUserID, err := strconv.ParseUint(userID, 10, 64)
 	if err != nil {
 		return UserProfile{}, fmt.Errorf("%w: %v", ErrInvalidUserID, err)
 	}
@@ -72,8 +71,8 @@ func (store *MySQLUserStore) GetUserProfile(ctx context.Context, userID string) 
 		SELECT login_id, nickname FROM users WHERE id = ?
 	`
 
-	profile := UserProfile{UserID: userUUID.String()}
-	err = store.db.QueryRowContext(ctx, selectUser, userUUID[:]).Scan(&profile.LoginID, &profile.Nickname)
+	profile := UserProfile{UserID: strconv.FormatUint(parsedUserID, 10)}
+	err = store.db.QueryRowContext(ctx, selectUser, parsedUserID).Scan(&profile.LoginID, &profile.Nickname)
 	if errors.Is(err, sql.ErrNoRows) {
 		return UserProfile{}, ErrUserNotFound
 	}

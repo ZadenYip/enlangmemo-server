@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +17,7 @@ func TestCreateUserReturnsUnderlyingExecError(t *testing.T) {
 		_ = db.Close()
 	}()
 	mock.ExpectExec("INSERT INTO users").
-		WithArgs(sqlmock.AnyArg(), "alice", "Alice", "hashed-password").
+		WithArgs("alice", "Alice", "hashed-password").
 		WillReturnError(wantErr)
 
 	store := NewMySQLUserStore(db)
@@ -32,23 +31,22 @@ func TestCreateUserReturnsUnderlyingExecError(t *testing.T) {
 
 // TestGetUserProfileReturnsProfile 测试 GetUserProfile 是否根据 userID 返回用户信息。
 func TestGetUserProfileReturnsProfile(t *testing.T) {
-	userUUID := uuid.MustParse("018f4f6d-7d8b-7cc0-b4d5-74a6e2f2dabc")
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
 		_ = db.Close()
 	}()
 	mock.ExpectQuery("SELECT login_id, nickname FROM users").
-		WithArgs(userUUID[:]).
+		WithArgs(uint64(10000)).
 		WillReturnRows(sqlmock.NewRows([]string{"login_id", "nickname"}).AddRow("alice", "Alice"))
 
 	store := NewMySQLUserStore(db)
 
-	profile, err := store.GetUserProfile(t.Context(), userUUID.String())
+	profile, err := store.GetUserProfile(t.Context(), "10000")
 
 	require.NoError(t, err)
 	require.Equal(t, UserProfile{
-		UserID:   userUUID.String(),
+		UserID:   "10000",
 		LoginID:  "alice",
 		Nickname: "Alice",
 	}, profile)
@@ -65,7 +63,7 @@ func TestGetUserProfileRejectsInvalidUserID(t *testing.T) {
 
 	store := NewMySQLUserStore(db)
 
-	profile, err := store.GetUserProfile(t.Context(), "not-a-uuid")
+	profile, err := store.GetUserProfile(t.Context(), "not-a-number")
 
 	require.Empty(t, profile)
 	require.ErrorIs(t, err, ErrInvalidUserID)

@@ -3,9 +3,9 @@ package integration
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,18 +66,15 @@ type appMeUser struct {
 func userByLoginID(t *testing.T, loginID string) appMeUser {
 	t.Helper()
 
-	var userIDBytes []byte
+	var userID uint64
 	var actualLoginID string
 	var nickname string
 	err := env.db.QueryRowContext(t.Context(), `SELECT id, login_id, nickname FROM users WHERE login_id = ?`, loginID).
-		Scan(&userIDBytes, &actualLoginID, &nickname)
-	require.NoError(t, err)
-
-	userID, err := uuid.FromBytes(userIDBytes)
+		Scan(&userID, &actualLoginID, &nickname)
 	require.NoError(t, err)
 
 	return appMeUser{
-		UserID:   userID.String(),
+		UserID:   strconv.FormatUint(userID, 10),
 		LoginID:  actualLoginID,
 		Nickname: nickname,
 	}
