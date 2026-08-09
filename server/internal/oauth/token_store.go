@@ -20,7 +20,7 @@ var ErrAccessTokenNotFound = errors.New("access token not found")
 var errAccessTokenClientMismatch = errors.New("access token client mismatch")
 
 const (
-	revokeAccessTokenNotFound = iota
+	revokeAccessTokenNotFound = iota + 1
 	revokeAccessTokenRevoked
 	revokeAccessTokenClientMismatch
 )
