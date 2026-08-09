@@ -72,8 +72,10 @@ func (s *OAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken str
 	tokenInfoJSON, err := s.rdb.Get(ctx, accessTokenPrefix+accessToken).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			// 返回 ErrAccessTokenNotFound 错误，表示访问令牌不存在
 			return TokenInfo{}, ErrAccessTokenNotFound
 		}
+		// 返回其他错误
 		return TokenInfo{}, err
 	}
 

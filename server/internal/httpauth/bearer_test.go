@@ -55,7 +55,7 @@ func TestBearerToken(t *testing.T) {
 				req.Header.Set("Authorization", tt.header)
 			}
 
-			token, ok := BearerToken(req)
+			token, ok := BearerToken(req.Header)
 
 			require.Equal(t, tt.wantOK, ok)
 			require.Equal(t, tt.wantToken, token)
