@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS sync_units (
     INDEX ix_sync_units_retention (op, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 同步单元索引表';
 
---- 一个用户只能有一个集合
+-- 一个用户只能有一个集合
 CREATE TABLE IF NOT EXISTS collections (
     user_id BIGINT UNSIGNED NOT NULL,
     -- UUIDv7
