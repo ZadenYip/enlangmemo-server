@@ -45,7 +45,10 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 	oauthHandler := oauth.NewOAuthHandler(oaStore, ssoStore, logger)
 
 	enlangmemoHandler := enlangmemo.NewHandler(oaStore, userStore, logger)
-	syncHandler := sync.NewSyncHandler(oaStore)
+
+	syncSessionStore := sync.NewSessionStore(storeDeps.Rdb, logger)
+	colStore := sync.NewCollectionStore(storeDeps.DB, logger)
+	syncHandler := sync.NewSyncHandler(oaStore, colStore, syncSessionStore)
 
 	return &Server{
 		log:               logger,

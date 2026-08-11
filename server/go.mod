@@ -3,6 +3,8 @@ module github.com/zadenyip/enlangmemo-server
 go 1.26.1
 
 require (
+	connectrpc.com/connect v1.20.0
+	connectrpc.com/validate v0.6.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/go-sql-driver/mysql v1.9.3
@@ -12,15 +14,13 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.43.0
-	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.1.2
+	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.2.4
 )
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260709200747-435963d16310.1 // indirect
 	buf.build/go/protovalidate v1.0.0 // indirect
 	cel.dev/expr v0.24.0 // indirect
-	connectrpc.com/connect v1.20.0 // indirect
-	connectrpc.com/validate v0.6.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
