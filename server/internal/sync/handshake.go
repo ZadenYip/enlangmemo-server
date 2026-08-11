@@ -41,7 +41,7 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 	req *syncv1.HandshakeRequest,
 	userID string,
 ) (SyncSession, error) {
-	sessionID, err := session.NewID()
+	sessionID, err := session.NewID(session.DefaultIDLen)
 	if err != nil {
 		h.logger.ErrorCtx(ctx, "failed to create session from request in SyncHandshake", "error", err)
 		return SyncSession{}, err

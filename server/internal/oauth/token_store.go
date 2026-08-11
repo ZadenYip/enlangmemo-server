@@ -33,7 +33,7 @@ var revokeAccessTokenScript = redis.NewScript(revokeAccessTokenLua)
 func (s *OAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
 	const maxAttempts = 3
 	for range maxAttempts {
-		accessToken, err := session.NewIDWithBase64RawURL()
+		accessToken, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
 		if err != nil {
 			return "", err
 		}
