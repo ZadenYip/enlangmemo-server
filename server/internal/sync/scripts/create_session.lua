@@ -9,14 +9,14 @@
 -- ARGV[8] = device_id
 -- ARGV[9] = ttl seconds
 --
--- return 0: session 已存在
--- return 1: session 创建成功
+-- return 1: session 已存在
+-- return 2: session 创建成功
 -- 抛出 error: 其他错误
 
 local sessionKey = KEYS[1]
 
 if redis.call("EXISTS", sessionKey) == 1 then
-  return 0
+  return 1
 end
 
 redis.call("HSET", sessionKey,
@@ -32,4 +32,4 @@ redis.call("HSET", sessionKey,
 
 redis.call("EXPIRE", sessionKey, ARGV[9])
 
-return 1
+return 2
