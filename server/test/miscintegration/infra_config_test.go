@@ -1,4 +1,4 @@
-package integration
+package miscintegration
 
 import (
 	"testing"
@@ -13,8 +13,8 @@ func TestInfraConfigClients(t *testing.T) {
 	resetEnv(t)
 
 	cfg := config.Load()
-	require.Equal(t, env.dbURL, cfg.DatabaseURL)
-	require.Equal(t, env.rdsURL, cfg.RedisURL)
+	require.Equal(t, suite.Env.DBURL, cfg.DatabaseURL)
+	require.Equal(t, suite.Env.RedisURL, cfg.RedisURL)
 
 	db := mysql.NewClient(cfg.DatabaseURL)
 	defer db.Close()

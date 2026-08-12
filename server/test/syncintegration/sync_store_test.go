@@ -1,4 +1,4 @@
-package integration
+package syncintegration
 
 import (
 	"strconv"
@@ -14,7 +14,7 @@ func TestCollectionStoreGetColInfoForHandshake(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
 	userID := createSyncTestUser(t, "syncuser3")
-	store := syncstore.NewCollectionStore(env.db, logging.NewServerLog())
+	store := syncstore.NewCollectionStore(suite.Env.DB, logging.NewServerLog())
 
 	info, err := store.GetColInfoForHandshake(ctx, userID)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestCollectionStoreGetColInfoForHandshake(t *testing.T) {
 func TestSessionStoreCreateSession(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(env.rdsClient, logging.NewServerLog())
+	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
 	session := syncstore.SyncSession{
 		UserID:                      "session-user-1",
 		State:                       syncstore.SyncSessionStatePulling,
@@ -60,7 +60,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 	require.Equal(t, syncstore.CreateSessionCreated, result)
 
 	key := "sync:" + session.UserID + ":sync_lock"
-	got, err := env.rdsClient.HGetAll(ctx, key).Result()
+	got, err := suite.Env.RDB.HGetAll(ctx, key).Result()
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
 		"user_id":                             session.UserID,
@@ -73,7 +73,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 		"device_id":                           session.DeviceID,
 	}, got)
 
-	ttl, err := env.rdsClient.TTL(ctx, key).Result()
+	ttl, err := suite.Env.RDB.TTL(ctx, key).Result()
 	require.NoError(t, err)
 	require.Positive(t, ttl)
 	require.LessOrEqual(t, ttl.Seconds(), float64(60))
@@ -92,7 +92,7 @@ type syncTestCollectionRow struct {
 
 func createSyncTestUser(t *testing.T, loginID string) string {
 	t.Helper()
-	result, err := env.db.ExecContext(
+	result, err := suite.Env.DB.ExecContext(
 		t.Context(),
 		`INSERT INTO users (login_id, nickname, password_hash) VALUES (?, ?, ?)`,
 		loginID,
@@ -112,7 +112,7 @@ func insertSyncTestCollection(t *testing.T, userID string, row syncTestCollectio
 	require.NoError(t, err)
 	now := int64(1_700_000_000_000)
 
-	_, err = env.db.ExecContext(
+	_, err = suite.Env.DB.ExecContext(
 		t.Context(),
 		`INSERT INTO collections (
 			user_id, id, sqlite_schema_version, last_sync_time, sync_cursor_usn,

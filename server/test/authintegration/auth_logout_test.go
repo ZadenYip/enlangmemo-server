@@ -1,4 +1,4 @@
-package integration
+package authintegration
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 func newLogoutRequest(t *testing.T, cookie *http.Cookie) *http.Request {
 	t.Helper()
 
-	url := testServer.URL + "/v1/auth/logout"
+	url := suite.Server.URL + "/v1/auth/logout"
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, nil)
 	require.NoError(t, err)
 	if cookie != nil {
@@ -26,7 +26,7 @@ func newLogoutRequest(t *testing.T, cookie *http.Cookie) *http.Request {
 func doLogout(t *testing.T, cookie *http.Cookie) *http.Response {
 	t.Helper()
 
-	resp, err := testClient.Do(newLogoutRequest(t, cookie))
+	resp, err := suite.Client.Do(newLogoutRequest(t, cookie))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

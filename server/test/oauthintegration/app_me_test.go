@@ -1,4 +1,4 @@
-package integration
+package oauthintegration
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ func newAppMeRequest(t *testing.T, accessToken string) *http.Request {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		testServer.URL+"/v1/apps/enlangmemo/me",
+		suite.Server.URL+"/v1/apps/enlangmemo/me",
 		nil,
 	)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func newAppMeRequest(t *testing.T, accessToken string) *http.Request {
 func doAppMe(t *testing.T, accessToken string) *http.Response {
 	t.Helper()
 
-	resp, err := testClient.Do(newAppMeRequest(t, accessToken))
+	resp, err := suite.Client.Do(newAppMeRequest(t, accessToken))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, resp.Body.Close())
@@ -69,7 +69,7 @@ func userByLoginID(t *testing.T, loginID string) appMeUser {
 	var userID uint64
 	var actualLoginID string
 	var nickname string
-	err := env.db.QueryRowContext(t.Context(), `SELECT id, login_id, nickname FROM users WHERE login_id = ?`, loginID).
+	err := suite.Env.DB.QueryRowContext(t.Context(), `SELECT id, login_id, nickname FROM users WHERE login_id = ?`, loginID).
 		Scan(&userID, &actualLoginID, &nickname)
 	require.NoError(t, err)
 

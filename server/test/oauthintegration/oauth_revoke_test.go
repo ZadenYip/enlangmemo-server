@@ -1,4 +1,4 @@
-package integration
+package oauthintegration
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ func newRevokeTokenRequest(t *testing.T, form url.Values) *http.Request {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		testServer.URL+"/v1/oauth/revoke",
+		suite.Server.URL+"/v1/oauth/revoke",
 		strings.NewReader(form.Encode()),
 	)
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func newRevokeTokenRequest(t *testing.T, form url.Values) *http.Request {
 func doRevokeToken(t *testing.T, form url.Values) *http.Response {
 	t.Helper()
 
-	resp, err := testClient.Do(newRevokeTokenRequest(t, form))
+	resp, err := suite.Client.Do(newRevokeTokenRequest(t, form))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, resp.Body.Close())
@@ -79,7 +79,7 @@ func requireRevokeError(t *testing.T, resp *http.Response, errorCode, descriptio
 func requireAccessTokenExists(t *testing.T, accessToken string, wantExists int64) {
 	t.Helper()
 
-	exists, err := env.rdsClient.Exists(t.Context(), "oauth:access_token:"+accessToken).Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), "oauth:access_token:"+accessToken).Result()
 	require.NoError(t, err)
 	require.Equal(t, wantExists, exists)
 }

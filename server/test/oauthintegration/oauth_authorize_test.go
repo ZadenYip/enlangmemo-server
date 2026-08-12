@@ -1,4 +1,4 @@
-package integration
+package oauthintegration
 
 import (
 	"encoding/json"
@@ -71,7 +71,7 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 	require.NotEmpty(t, authCode)
 
 	key := "oauth:session:" + authCode
-	storedSession, err := env.rdsClient.Get(t.Context(), key).Bytes()
+	storedSession, err := suite.Env.RDB.Get(t.Context(), key).Bytes()
 	require.NoError(t, err)
 
 	var oauthSession oauth.OAuthSession
@@ -81,7 +81,7 @@ func TestAuthorizePKCESuccess(t *testing.T) {
 	require.Equal(t, codeChallengeFromVerifier(testOAuthCodeVerifier), oauthSession.CodeChallenge)
 	require.NotEmpty(t, oauthSession.UserID)
 
-	ttl, err := env.rdsClient.TTL(t.Context(), key).Result()
+	ttl, err := suite.Env.RDB.TTL(t.Context(), key).Result()
 	require.NoError(t, err)
 	require.Positive(t, ttl)
 	require.LessOrEqual(t, ttl, 10*time.Minute)
