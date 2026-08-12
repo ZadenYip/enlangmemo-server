@@ -131,6 +131,8 @@ func (e *testEnv) reset(ctx context.Context) error {
 		// MySQL module 没有类似 Postgres snapshot 的能力，测试间还原业务表即可。
 		if _, err := e.db.ExecContext(ctx, `
 			SET FOREIGN_KEY_CHECKS = 0;
+			TRUNCATE TABLE sync_units;
+			TRUNCATE TABLE collections;
 			TRUNCATE TABLE oauth_clients;
 			TRUNCATE TABLE users;
 			SET FOREIGN_KEY_CHECKS = 1;

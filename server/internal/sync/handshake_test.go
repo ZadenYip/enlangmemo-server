@@ -17,10 +17,6 @@ type fakeCollectionStore struct {
 	err     error
 }
 
-func (s *fakeCollectionStore) GetServerSyncCursorUSN(ctx context.Context, userID string, colID string) (int64, error) {
-	return 0, nil
-}
-
 func (s *fakeCollectionStore) GetColInfoForHandshake(ctx context.Context, userID string) (ColInfoForHandshake, error) {
 	if s.err != nil {
 		return ColInfoForHandshake{}, s.err
