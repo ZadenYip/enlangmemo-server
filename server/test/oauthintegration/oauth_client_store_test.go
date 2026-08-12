@@ -1,4 +1,4 @@
-package integration
+package oauthintegration
 
 import (
 	"testing"
@@ -12,11 +12,11 @@ import (
 func TestGetClientInfoCachesOAuthClient(t *testing.T) {
 	resetEnv(t)
 	clientID := registerOAuthClient(t, testOAuthRedirectURI)
-	store := oauth.NewOAStore(env.db, env.rdsClient, logging.NewServerLog())
+	store := oauth.NewOAStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	cacheKey := "oauth:client:" + clientID
 
 	// 确认缓存中不存在该客户端信息
-	exists, err := env.rdsClient.Exists(t.Context(), cacheKey).Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), cacheKey).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 
@@ -29,7 +29,7 @@ func TestGetClientInfoCachesOAuthClient(t *testing.T) {
 	}, clientInfo)
 
 	// 确认缓存中已经存在该客户端信息
-	exists, err = env.rdsClient.Exists(t.Context(), cacheKey).Result()
+	exists, err = suite.Env.RDB.Exists(t.Context(), cacheKey).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }

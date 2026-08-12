@@ -20,7 +20,7 @@ var ErrAccessTokenNotFound = errors.New("access token not found")
 var errAccessTokenClientMismatch = errors.New("access token client mismatch")
 
 const (
-	revokeAccessTokenNotFound = iota
+	revokeAccessTokenNotFound = iota + 1
 	revokeAccessTokenRevoked
 	revokeAccessTokenClientMismatch
 )
@@ -33,7 +33,7 @@ var revokeAccessTokenScript = redis.NewScript(revokeAccessTokenLua)
 func (s *OAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
 	const maxAttempts = 3
 	for range maxAttempts {
-		accessToken, err := session.NewID()
+		accessToken, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
 		if err != nil {
 			return "", err
 		}
@@ -72,8 +72,10 @@ func (s *OAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken str
 	tokenInfoJSON, err := s.rdb.Get(ctx, accessTokenPrefix+accessToken).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
+			// 返回 ErrAccessTokenNotFound 错误，表示访问令牌不存在
 			return TokenInfo{}, ErrAccessTokenNotFound
 		}
+		// 返回其他错误
 		return TokenInfo{}, err
 	}
 

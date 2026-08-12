@@ -46,7 +46,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
-	accessToken, ok := httpauth.BearerToken(r)
+	accessToken, ok := httpauth.BearerToken(r.Header)
 	if !ok {
 		h.responseUnauthorized(w)
 		return

@@ -1,4 +1,4 @@
-package integration
+package authintegration
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 func newRegisterRequest(t *testing.T, body []byte) *http.Request {
 	t.Helper()
 
-	url := testServer.URL + "/v1/auth/register"
+	url := suite.Server.URL + "/v1/auth/register"
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -27,7 +27,7 @@ func doRegister(t *testing.T, body []byte) *http.Response {
 	t.Helper()
 
 	// 以下为响应
-	resp, err := testClient.Do(newRegisterRequest(t, body))
+	resp, err := suite.Client.Do(newRegisterRequest(t, body))
 	require.NoError(t, err)
 
 	// 结束后关闭响应体

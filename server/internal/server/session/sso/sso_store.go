@@ -34,7 +34,7 @@ type RedisSSOStore struct {
 func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, error) {
 	const createMaxAttempts = 3
 	for range createMaxAttempts {
-		sessionID, err := session.NewID()
+		sessionID, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
 		if err != nil {
 			return "", err
 		}

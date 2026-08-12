@@ -11,6 +11,7 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
 	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
+	"github.com/zadenyip/enlangmemo-server/internal/sync"
 )
 
 type Server struct {
@@ -18,6 +19,7 @@ type Server struct {
 	authHandler       *auth.AuthHandler
 	oauthHandler      *oauth.OAuthHandler
 	enlangmemoHandler *enlangmemo.Handler
+	syncHandler       *sync.SyncHandler
 }
 
 type StoreDeps struct {
@@ -44,11 +46,16 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 
 	enlangmemoHandler := enlangmemo.NewHandler(oaStore, userStore, logger)
 
+	syncSessionStore := sync.NewSessionStore(storeDeps.Rdb, logger)
+	colStore := sync.NewCollectionStore(storeDeps.DB, logger)
+	syncHandler := sync.NewSyncHandler(oaStore, colStore, syncSessionStore)
+
 	return &Server{
 		log:               logger,
 		authHandler:       authHandler,
 		oauthHandler:      oauthHandler,
 		enlangmemoHandler: enlangmemoHandler,
+		syncHandler:       syncHandler,
 	}
 }
 
@@ -66,6 +73,10 @@ func (srv *Server) routes() http.Handler {
 
 	// 注册 EnLangMemo 应用路由
 	srv.enlangmemoHandler.RegisterRoutes(mux)
+
+	// 注册 EnLangMemo 同步 ConnectRPC 路由
+	srv.syncHandler.RegisterRoutes(mux)
+
 	return mux
 }
 

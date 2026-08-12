@@ -35,7 +35,7 @@ func (s *OAStore) GenCodeStoreSession(ctx context.Context, authoInfo Authorizati
 
 	const maxRetriesConflict = 3
 	for range maxRetriesConflict {
-		authCode, err := session.NewID()
+		authCode, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
 		if err != nil {
 			s.logger.ErrorCtx(ctx, "failed to generate auth code", "err", err)
 			return "", err

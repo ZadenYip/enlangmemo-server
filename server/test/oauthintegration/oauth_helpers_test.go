@@ -1,8 +1,10 @@
-package integration
+package oauthintegration
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"testing"
@@ -32,7 +34,7 @@ func registerOAuthClient(t *testing.T, redirectURI string) string {
 	clientUUID, err := uuid.NewV7()
 	require.NoError(t, err)
 	clientID := clientUUID.String()
-	_, err = env.db.ExecContext(
+	_, err = suite.Env.DB.ExecContext(
 		t.Context(),
 		`INSERT INTO oauth_clients (id, name, redirect_uri)
 		 VALUES (?, ?, ?)`,
@@ -49,11 +51,45 @@ func registerOAuthClient(t *testing.T, redirectURI string) string {
 func loginAndRegisterForAuthorizePKCE(t *testing.T, loginID string) *http.Cookie {
 	t.Helper()
 
-	registerUserForLogin(t, loginID, "testpassword")
-	resp := doLogin(t, marshalLoginRequest(t, auth.LoginRequest{
+	registerBody, err := json.Marshal(auth.RegisterRequest{
+		LoginID:  loginID,
+		Nickname: "测试用户",
+		Password: "testpassword",
+	})
+	require.NoError(t, err)
+	registerReq, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		suite.Server.URL+"/v1/auth/register",
+		bytes.NewReader(registerBody),
+	)
+	require.NoError(t, err)
+	registerReq.Header.Set("Content-Type", "application/json")
+	registerResp, err := suite.Client.Do(registerReq)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, registerResp.Body.Close())
+	})
+	require.Equal(t, http.StatusCreated, registerResp.StatusCode)
+
+	loginBody, err := json.Marshal(auth.LoginRequest{
 		LoginID:  loginID,
 		Password: "testpassword",
-	}))
+	})
+	require.NoError(t, err)
+	loginReq, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		suite.Server.URL+"/v1/auth/login",
+		bytes.NewReader(loginBody),
+	)
+	require.NoError(t, err)
+	loginReq.Header.Set("Content-Type", "application/json")
+	resp, err := suite.Client.Do(loginReq)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, resp.Body.Close())
+	})
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, resp.Cookies(), 1)
 	require.Equal(t, sso.SSOCookieName, resp.Cookies()[0].Name)
@@ -80,7 +116,7 @@ func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, ssoCook
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		testServer.URL+"/v1/oauth/authorize?"+query.Encode(),
+		suite.Server.URL+"/v1/oauth/authorize?"+query.Encode(),
 		nil,
 	)
 	require.NoError(t, err)
@@ -99,7 +135,7 @@ func newAuthorizePKCERequest(t *testing.T, clientID, redirectURI string, ssoCook
 func doAuthorizePKCE(t *testing.T, req *http.Request) *http.Response {
 	t.Helper()
 
-	client := *testClient
+	client := *suite.Client
 	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 		return http.ErrUseLastResponse
 	}

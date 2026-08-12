@@ -1,4 +1,4 @@
-package integration
+package oauthintegration
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ func newExchangeTokenRequest(t *testing.T, form url.Values) *http.Request {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		testServer.URL+"/v1/oauth/token",
+		suite.Server.URL+"/v1/oauth/token",
 		strings.NewReader(form.Encode()),
 	)
 	require.NoError(t, err)
@@ -31,7 +31,7 @@ func newExchangeTokenRequest(t *testing.T, form url.Values) *http.Request {
 func doExchangeToken(t *testing.T, form url.Values) *http.Response {
 	t.Helper()
 
-	resp, err := testClient.Do(newExchangeTokenRequest(t, form))
+	resp, err := suite.Client.Do(newExchangeTokenRequest(t, form))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, resp.Body.Close())
@@ -95,12 +95,12 @@ func TestExchangeTokenSuccess(t *testing.T) {
 	require.Equal(t, "bearer", body.TokenType)
 	require.Equal(t, int64(3600*24), body.ExpiresIn)
 
-	ttl, err := env.rdsClient.TTL(t.Context(), "oauth:access_token:"+body.AccessToken).Result()
+	ttl, err := suite.Env.RDB.TTL(t.Context(), "oauth:access_token:"+body.AccessToken).Result()
 	require.NoError(t, err)
 	require.Positive(t, ttl)
 	require.LessOrEqual(t, ttl, 24*time.Hour)
 
-	exists, err := env.rdsClient.Exists(t.Context(), "oauth:session:"+authCode).Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), "oauth:session:"+authCode).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 }
