@@ -91,4 +91,4 @@ suite.Env.RDB
 
 - 不要手动拼 MySQL 或 Redis 地址，使用测试环境里的 `suite.Env.DBURL` / `suite.Env.RedisURL`。
 - 不要在单个测试里调用 `suite.Env.Reset`，统一用 `resetEnv(t)`。
-- 修改数据库 schema 时，更新 `docker/mysql-init-scripts/000_schema.sql`。
+- 修改数据库 schema 时，更新 `docker/mysql/mysql-init-scripts/000_schema.sql`。

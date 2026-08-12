@@ -164,9 +164,9 @@ func Start(ctx context.Context) (*Env, error) {
 func schemaPath() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		return filepath.Join("docker", "mysql-init-scripts", "000_schema.sql")
+		return filepath.Join("docker", "mysql", "mysql-init-scripts", "000_schema.sql")
 	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "docker", "mysql-init-scripts", "000_schema.sql")
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "docker", "mysql", "mysql-init-scripts", "000_schema.sql")
 }
 
 func (e *Env) configure(ctx context.Context) error {

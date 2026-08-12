@@ -6,7 +6,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./redis_data:/data
+      - ./redis/redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -24,8 +24,10 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./mysql_data:/var/lib/mysql
-      - ./mysql-init-scripts:/docker-entrypoint-initdb.d/
+      - ./mysql/mysql_data:/var/lib/mysql
+      - ./mysql/mysql-init-scripts:/docker-entrypoint-initdb.d
+      # 挂载自定义配置文件
+      - ./mysql/conf.cnf:/etc/mysql/conf.d/custom.cnf
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s

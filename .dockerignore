@@ -16,8 +16,8 @@ server/coverage.out
 server/*.test
 
 # Docker local data
-docker/mysql_data
-docker/redis_data
+docker/mysql/mysql_data
+docker/redis/redis_data
 
 # IDE / OS
 .idea
