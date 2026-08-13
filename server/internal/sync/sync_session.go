@@ -9,8 +9,10 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
-// syncSessionTTLSeconds
-const syncSessionTTLSecs = 60
+const (
+	// syncSessionTTLSeconds
+	syncSessionTTLSecs = 60
+)
 
 type SyncSession struct {
 	UserID string `redis:"user_id"`
@@ -36,6 +38,8 @@ type SyncSession struct {
 
 type SessionState int
 
+// 注意此处变更值顺序记得更新对应的 LUA 脚本，因为 LUA 脚本中使用了数字表示状态，变更顺序会导致 LUA 脚本逻辑错误
+// 最好不要变更顺序
 const (
 	SyncSessionStateUnspecified SessionState = iota
 	SyncSessionStatePulling
@@ -47,6 +51,9 @@ const (
 )
 
 type SessionStorer interface {
+	// GetSession 获取当前用户 SyncSession 的完整快照。
+	// 如果 session 不存在，返回空的 SyncSession 和 nil。
+	GetSession(ctx context.Context, userID string) (SyncSession, error)
 	// CreateSession 尝试创建一个新的 SyncSession
 	//
 	// CreateSessionResult 返回值含义如下
@@ -57,8 +64,36 @@ type SessionStorer interface {
 	//
 	// Session 超时时间为 60 秒
 	CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error)
-	// GetSessionLock(userID string) (*SyncSession, error)
+	// ClaimPushBatch 校验 Push session 和 batch，并分配 assigned_usn（可用的下个 sync_cursor_usn）
+	ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int64) (ClaimPushBatchResult, error)
+	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
+	MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error)
 }
+
+type ClaimPushBatchResult struct {
+	LuaResult   ClaimPushBatchLuaResult
+	AssignedUSN int64
+}
+
+type ClaimPushBatchLuaResult int64
+
+const (
+	ClaimPushBatchLuaErr ClaimPushBatchLuaResult = iota
+	ClaimPushBatchLuaOK
+	ClaimPushBatchLuaSessionNotFound
+	ClaimPushBatchLuaSessionIDMismatch
+	ClaimPushBatchLuaBatchSeqMismatch
+	ClaimPushBatchLuaStateMismatch
+)
+
+type MarkPushFinishedResult int64
+
+const (
+	MarkPushFinishedErr MarkPushFinishedResult = iota
+	MarkPushFinishedOK
+	MarkPushFinishedSessionNotFound
+	MarkPushFinishedSessionIDMismatch
+)
 
 type CreateSessionResult int64
 
@@ -88,7 +123,35 @@ func rdbSessionKey(userID string) string {
 var createSessionLua string
 var createSessionScript = redis.NewScript(createSessionLua)
 
+//go:embed scripts/claim_push_batch.lua
+var claimPushBatchLua string
+var claimPushBatchScript = redis.NewScript(claimPushBatchLua)
+
+//go:embed scripts/mark_push_finished.lua
+var markPushFinishedLua string
+var markPushFinishedScript = redis.NewScript(markPushFinishedLua)
+
 // CreateSession 使用了 create_session.lua 脚本创建 SyncSession，保证原子性
+func (s *SessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
+	cmd := s.rdb.HGetAll(ctx, rdbSessionKey(userID))
+	fields, err := cmd.Result()
+	if err != nil {
+		s.logger.ErrorCtx(ctx, "failed to get sync session", "userID", userID, "error", err)
+		return SyncSession{}, err
+	}
+	if len(fields) == 0 {
+		return SyncSession{}, fmt.Errorf("failed to decode sync session: no fields found for userID %s", userID)
+	}
+
+	var session SyncSession
+	if err := cmd.Scan(&session); err != nil {
+		s.logger.ErrorCtx(ctx, "failed to scan sync session", "userID", userID, "fields", fields, "error", err)
+		return SyncSession{}, err
+	}
+
+	return session, nil
+}
+
 func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
 	result, err := createSessionScript.Run(
 		ctx,
@@ -111,6 +174,88 @@ func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (
 	default:
 		s.logger.ErrorCtx(ctx, "unknown create session result", "result", result)
 		return CreateSessionErr, fmt.Errorf("unknown create session result: %d", result)
+	}
+}
+
+func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int64) (ClaimPushBatchResult, error) {
+	rawResult, err := claimPushBatchScript.Run(
+		ctx,
+		s.rdb,
+		[]string{rdbSessionKey(userID)},
+		sessionID,
+		curBatchSeq,
+		int64(syncSessionTTLSecs),
+	).Int64Slice()
+	if err != nil {
+		s.logger.ErrorCtx(ctx, "failed to claim push batch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "error", err)
+		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, err
+	}
+
+	if len(rawResult) != 2 {
+		s.logger.ErrorCtx(ctx, "invalid claim push batch result", "result", rawResult)
+		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, fmt.Errorf("invalid claim push batch result: %v", rawResult)
+	}
+
+	result := ClaimPushBatchResult{
+		LuaResult:   ClaimPushBatchLuaResult(rawResult[0]),
+		AssignedUSN: rawResult[1],
+	}
+
+	switch result.LuaResult {
+	case ClaimPushBatchLuaOK:
+		return result, nil
+	case ClaimPushBatchLuaSessionNotFound:
+		s.logger.InfoCtx(ctx, "sync session not found", "userID", userID)
+		return result, nil
+	case ClaimPushBatchLuaSessionIDMismatch:
+		s.logger.InfoCtx(ctx, "sync session id mismatch", "userID", userID, "sessionID", sessionID)
+		return result, nil
+	case ClaimPushBatchLuaBatchSeqMismatch:
+		s.logger.InfoCtx(ctx, "sync batch seq mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq)
+		return result, nil
+	case ClaimPushBatchLuaStateMismatch:
+		s.logger.InfoCtx(ctx, "sync session state mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq)
+		return result, nil
+	default:
+		if session, err := s.GetSession(ctx, userID); err == nil {
+			s.logger.ErrorCtx(ctx, "unknown claim push batch result", "result", result.LuaResult, "session", session)
+		} else {
+			s.logger.ErrorCtx(ctx, "unknown claim push batch result and failed to get session for printing", "userID", userID, "error", err)
+		}
+		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, fmt.Errorf("unknown claim push batch result: %d", result.LuaResult)
+	}
+}
+
+func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error) {
+	result, err := markPushFinishedScript.Run(
+		ctx,
+		s.rdb,
+		[]string{rdbSessionKey(userID)},
+		sessionID,
+		int64(syncSessionTTLSecs),
+	).Int64()
+	if err != nil {
+		s.logger.ErrorCtx(ctx, "failed to mark push finished", "userID", userID, "sessionID", sessionID, "error", err)
+		return MarkPushFinishedErr, err
+	}
+
+	switch MarkPushFinishedResult(result) {
+	case MarkPushFinishedOK:
+		return MarkPushFinishedOK, nil
+	case MarkPushFinishedSessionNotFound:
+		s.logger.InfoCtx(ctx, "sync session not found", "userID", userID)
+		return MarkPushFinishedSessionNotFound, nil
+	case MarkPushFinishedSessionIDMismatch:
+		s.logger.InfoCtx(ctx, "sync session id mismatch", "userID", userID, "sessionID", sessionID)
+		return MarkPushFinishedSessionIDMismatch, nil
+	default:
+		s.logger.ErrorCtx(ctx, "unknown mark push finished result", "result", result)
+		if session, err := s.GetSession(ctx, userID); err == nil {
+			s.logger.ErrorCtx(ctx, "unknown mark push finished result", "result", result, "session", session)
+		} else {
+			s.logger.ErrorCtx(ctx, "unknown mark push finished result and failed to get session for printing", "userID", userID, "error", err)
+		}
+		return MarkPushFinishedErr, fmt.Errorf("unknown mark push finished result: %d", result)
 	}
 }
 

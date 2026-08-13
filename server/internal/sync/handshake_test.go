@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
@@ -25,16 +26,44 @@ func (s *fakeCollectionStore) GetColInfoForHandshake(ctx context.Context, userID
 }
 
 type fakeSessionStore struct {
+	mock.Mock
+
 	result         CreateSessionResult
 	err            error
 	createdSession SyncSession
 	createCalls    int
 }
 
+func newFakeSessionStore(t *testing.T, result CreateSessionResult) *fakeSessionStore {
+	t.Helper()
+	store := &fakeSessionStore{result: result}
+	t.Cleanup(func() {
+		store.AssertNotCalled(t, "GetSession", mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "ClaimPushBatch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "MarkPushFinished", mock.Anything, mock.Anything, mock.Anything)
+	})
+	return store
+}
+
+func (s *fakeSessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
+	args := s.Called(ctx, userID)
+	return args.Get(0).(SyncSession), args.Error(1)
+}
+
 func (s *fakeSessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
 	s.createCalls++
 	s.createdSession = session
 	return s.result, s.err
+}
+
+func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ClaimPushBatchResult, error) {
+	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
+	return args.Get(0).(ClaimPushBatchResult), args.Error(1)
+}
+
+func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error) {
+	args := s.Called(ctx, userID, sessionID)
+	return args.Get(0).(MarkPushFinishedResult), args.Error(1)
 }
 
 func TestHandshakeStatusAndSessionState(t *testing.T) {
@@ -94,7 +123,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", "user-1")
-			sessionStore := &fakeSessionStore{result: CreateSessionCreated}
+			sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 			handler := &SyncHandler{
 				colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
 					CollectionID:  "collection-1",
@@ -144,7 +173,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 // TestHandshakeTimeSkewTooLargeDoesNotCreateSession 测试当客户端和服务器时间差超过 5 分钟时，握手返回 TIME_SKEW_TOO_LARGE
 func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
-	sessionStore := &fakeSessionStore{result: CreateSessionCreated}
+	sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 	handler := &SyncHandler{
 		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
 			CollectionID:  "collection-1",
@@ -173,7 +202,7 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
 		colStore:     &fakeCollectionStore{err: errors.New("collection store error")},
-		sessionStore: &fakeSessionStore{result: CreateSessionCreated},
+		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -195,7 +224,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: &fakeSessionStore{result: CreateSessionAlreadyExists},
+		sessionStore: newFakeSessionStore(t, CreateSessionAlreadyExists),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -217,7 +246,7 @@ func TestHandshakeCollectionIDMismatch(t *testing.T) {
 			CollectionID:  "server-collection",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: &fakeSessionStore{result: CreateSessionCreated},
+		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
 		logger:       logging.NewServerLog(),
 	}
 

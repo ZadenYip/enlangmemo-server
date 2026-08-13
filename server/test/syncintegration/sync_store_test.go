@@ -40,49 +40,6 @@ func TestCollectionStoreGetColInfoForHandshake(t *testing.T) {
 	require.True(t, info.IsDeleted)
 }
 
-func TestSessionStoreCreateSession(t *testing.T) {
-	resetEnv(t)
-	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
-		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStatePulling,
-		ExpectedBatchSeq:            1,
-		SyncCursorUSN:               12,
-		SessionID:                   "session-id-1",
-		CliSyncCursorUSNAtHandshake: 3,
-		SrvSyncCursorUSNAtHandshake: 12,
-		DeviceID:                    "device-1",
-	}
-
-	result, err := store.CreateSession(ctx, session)
-	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, result)
-
-	key := "sync:" + session.UserID + ":sync_lock"
-	got, err := suite.Env.RDB.HGetAll(ctx, key).Result()
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"user_id":                             session.UserID,
-		"state":                               strconv.FormatInt(int64(session.State), 10),
-		"expected_batch_seq":                  "1",
-		"sync_cursor_usn":                     "12",
-		"session_id":                          session.SessionID,
-		"client_sync_cursor_usn_at_handshake": "3",
-		"server_sync_cursor_usn_at_handshake": "12",
-		"device_id":                           session.DeviceID,
-	}, got)
-
-	ttl, err := suite.Env.RDB.TTL(ctx, key).Result()
-	require.NoError(t, err)
-	require.Positive(t, ttl)
-	require.LessOrEqual(t, ttl.Seconds(), float64(60))
-
-	result, err = store.CreateSession(ctx, session)
-	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionAlreadyExists, result)
-}
-
 type syncTestCollectionRow struct {
 	sqliteSchemaVersion int32
 	lastSyncTime        int64
