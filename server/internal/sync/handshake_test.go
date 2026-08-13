@@ -13,14 +13,14 @@ import (
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
-type fakeCollectionStore struct {
-	colInfo ColInfoForHandshake
+type fakeHandshakeStore struct {
+	colInfo CollectionInfoForHandshake
 	err     error
 }
 
-func (s *fakeCollectionStore) GetColInfoForHandshake(ctx context.Context, userID string) (ColInfoForHandshake, error) {
+func (s *fakeHandshakeStore) GetCollectionInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
 	if s.err != nil {
-		return ColInfoForHandshake{}, s.err
+		return CollectionInfoForHandshake{}, s.err
 	}
 	return s.colInfo, nil
 }
@@ -125,7 +125,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", "user-1")
 			sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 			handler := &SyncHandler{
-				colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 					CollectionID:  "collection-1",
 					SyncCursorUSN: tt.serverCursor,
 				}},
@@ -175,7 +175,7 @@ func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
@@ -201,7 +201,7 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	// 测试 collection store 返回错误时，握手返回 INTERNAL 错误
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore:     &fakeCollectionStore{err: errors.New("collection store error")},
+		hskStore:     &fakeHandshakeStore{err: errors.New("handshake store error")},
 		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
 	}
 
@@ -220,7 +220,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 	// 测试 session store 返回已经存在会话时，握手返回 LOCKED_BY_OTHER_CLIENT 状态
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
@@ -242,7 +242,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 func TestHandshakeCollectionIDMismatch(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "server-collection",
 			SyncCursorUSN: 10,
 		}},

@@ -13,14 +13,14 @@ import (
 type SyncHandler struct {
 	oaStore      oauth.OAStorer
 	sessionStore SessionStorer
-	colStore     CollectionStorer
+	hskStore     HandshakeStorer
 	logger       logging.Logger
 }
 
-func NewSyncHandler(oaStore oauth.OAStorer, colStore CollectionStorer, sessionStore SessionStorer) *SyncHandler {
+func NewSyncHandler(oaStore oauth.OAStorer, hskStore HandshakeStorer, sessionStore SessionStorer) *SyncHandler {
 	return &SyncHandler{
 		oaStore:      oaStore,
-		colStore:     colStore,
+		hskStore:     hskStore,
 		sessionStore: sessionStore,
 		logger:       logging.NewServerLog(),
 	}
