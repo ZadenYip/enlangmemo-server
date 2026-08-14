@@ -47,6 +47,7 @@ type syncTestCollectionRow struct {
 	isDeleted           bool
 }
 
+// loginID 长度不能超过 16 字符
 func createSyncTestUser(t *testing.T, loginID string) string {
 	t.Helper()
 	result, err := suite.Env.DB.ExecContext(

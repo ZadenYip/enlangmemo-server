@@ -71,6 +71,29 @@ func TestSomething(t *testing.T) {
 }
 ```
 
+## ConnectRPC 测试
+
+对于 ConnectRPC 测试也是同一个 `httptest.Server`，不要直接调用 handler。可以利用 `testenv.ConnectRPCClient` 创建生成代码里的客户端，这样请求会走真实 HTTP 发送 ConnectRPC 请求。
+```go
+import (
+	"github.com/zadenyip/enlangmemo-server/test/testenv"
+	"github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1/syncv1connect"
+)
+
+func newSyncTestClient() syncv1connect.SyncServiceClient {
+	return testenv.ConnectRPCClient(suite, syncv1connect.NewSyncServiceClient)
+}
+```
+
+如果 RPC 需要鉴权，在 request 上设置 `Authorization` header：
+
+```go
+req := connect.NewRequest(&syncv1.HandshakeRequest{})
+req.Header().Set("Authorization", "Bearer "+accessToken)
+
+resp, err := client.Handshake(t.Context(), req)
+```
+
 ## 直接访问数据库或 Redis
 
 需要检查数据库状态时，可以使用：

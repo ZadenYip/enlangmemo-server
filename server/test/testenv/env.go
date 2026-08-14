@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"testing"
 
+	"connectrpc.com/connect"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -108,6 +109,10 @@ func (s *Suite) StartHTTPServer() {
 
 	s.Client = s.Server.Client()
 	s.Client.Transport = &TraceparentTransport{Base: s.Client.Transport}
+}
+
+func ConnectRPCClient[T any](s *Suite, newClient func(connect.HTTPClient, string, ...connect.ClientOption) T, opts ...connect.ClientOption) T {
+	return newClient(s.Client, s.Server.URL, opts...)
 }
 
 type TraceparentTransport struct {

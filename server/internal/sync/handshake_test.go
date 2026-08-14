@@ -61,9 +61,9 @@ func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID
 	return args.Get(0).(ClaimPushBatchResult), args.Error(1)
 }
 
-func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error) {
+func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
 	args := s.Called(ctx, userID, sessionID)
-	return args.Get(0).(MarkPushFinishedResult), args.Error(1)
+	return args.Error(0)
 }
 
 func TestHandshakeStatusAndSessionState(t *testing.T) {

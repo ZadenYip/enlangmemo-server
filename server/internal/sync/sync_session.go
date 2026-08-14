@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
@@ -52,7 +53,7 @@ const (
 
 type SessionStorer interface {
 	// GetSession 获取当前用户 SyncSession 的完整快照。
-	// 如果 session 不存在，返回空的 SyncSession 和 nil。
+	// 如果 session 不存在或字段不完整，返回 error。
 	GetSession(ctx context.Context, userID string) (SyncSession, error)
 	// CreateSession 尝试创建一个新的 SyncSession
 	//
@@ -67,7 +68,7 @@ type SessionStorer interface {
 	// ClaimPushBatch 校验 Push session 和 batch，并分配 assigned_usn（可用的下个 sync_cursor_usn）
 	ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int64) (ClaimPushBatchResult, error)
 	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
-	MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error)
+	MarkPushFinished(ctx context.Context, userID, sessionID string) error
 }
 
 type ClaimPushBatchResult struct {
@@ -86,10 +87,8 @@ const (
 	ClaimPushBatchLuaStateMismatch
 )
 
-type MarkPushFinishedResult int64
-
 const (
-	MarkPushFinishedErr MarkPushFinishedResult = iota
+	MarkPushFinishedErr int64 = iota
 	MarkPushFinishedOK
 	MarkPushFinishedSessionNotFound
 	MarkPushFinishedSessionIDMismatch
@@ -140,7 +139,7 @@ func (s *SessionStore) GetSession(ctx context.Context, userID string) (SyncSessi
 		return SyncSession{}, err
 	}
 	if len(fields) == 0 {
-		return SyncSession{}, fmt.Errorf("failed to decode sync session: no fields found for userID %s", userID)
+		return SyncSession{}, fmt.Errorf("sync session not found for userID %s", userID)
 	}
 
 	var session SyncSession
@@ -226,7 +225,7 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID str
 	}
 }
 
-func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) (MarkPushFinishedResult, error) {
+func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
 	result, err := markPushFinishedScript.Run(
 		ctx,
 		s.rdb,
@@ -236,18 +235,18 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID s
 	).Int64()
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to mark push finished", "userID", userID, "sessionID", sessionID, "error", err)
-		return MarkPushFinishedErr, err
+		return err
 	}
 
-	switch MarkPushFinishedResult(result) {
+	switch result {
 	case MarkPushFinishedOK:
-		return MarkPushFinishedOK, nil
+		return nil
 	case MarkPushFinishedSessionNotFound:
-		s.logger.InfoCtx(ctx, "sync session not found", "userID", userID)
-		return MarkPushFinishedSessionNotFound, nil
+		s.logger.ErrorCtx(ctx, "sync session not found when marking push finished", "userID", userID, "sessionID", sessionID)
+		return errors.New("sync session not found when marking push finished")
 	case MarkPushFinishedSessionIDMismatch:
-		s.logger.InfoCtx(ctx, "sync session id mismatch", "userID", userID, "sessionID", sessionID)
-		return MarkPushFinishedSessionIDMismatch, nil
+		s.logger.ErrorCtx(ctx, "sync session id mismatch when marking push finished", "userID", userID, "sessionID", sessionID)
+		return errors.New("sync session id mismatch when marking push finished")
 	default:
 		s.logger.ErrorCtx(ctx, "unknown mark push finished result", "result", result)
 		if session, err := s.GetSession(ctx, userID); err == nil {
@@ -255,7 +254,7 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID s
 		} else {
 			s.logger.ErrorCtx(ctx, "unknown mark push finished result and failed to get session for printing", "userID", userID, "error", err)
 		}
-		return MarkPushFinishedErr, fmt.Errorf("unknown mark push finished result: %d", result)
+		return fmt.Errorf("unknown mark push finished result: %d", result)
 	}
 }
 
