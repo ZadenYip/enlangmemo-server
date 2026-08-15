@@ -13,7 +13,7 @@ import (
 func TestSessionStoreCreateSession(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
+	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := syncstore.SyncSession{
 		UserID:                      "session-user-1",
 		State:                       syncstore.SyncSessionStatePulling,
@@ -58,7 +58,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 func TestSessionStoreClaimPushBatch(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
+	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := syncstore.SyncSession{
 		UserID:                      "session-user-1",
 		State:                       syncstore.SyncSessionStatePushing,
@@ -115,7 +115,7 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
+	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := syncstore.SyncSession{
 		UserID:                      "session-user-1",
 		State:                       syncstore.SyncSessionStateAwaitingPushOrFinish,
@@ -147,7 +147,7 @@ func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 func TestSessionStoreMarkPushFinished(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
+	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := syncstore.SyncSession{
 		UserID:                      "session-user-1",
 		State:                       syncstore.SyncSessionStatePushing,

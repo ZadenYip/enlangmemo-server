@@ -41,7 +41,7 @@ func newFakeSessionStore(t *testing.T, result CreateSessionResult) *fakeSessionS
 		store.AssertNotCalled(t, "GetSession", mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "ClaimPushBatch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "MarkPushFinished", mock.Anything, mock.Anything, mock.Anything)
-		store.AssertNotCalled(t, "FinishSync", mock.Anything, mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "FinishSync", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 	return store
 }
@@ -67,8 +67,8 @@ func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, session
 	return args.Error(0)
 }
 
-func (s *fakeSessionStore) FinishSync(ctx context.Context, userID, sessionID string) error {
-	args := s.Called(ctx, userID, sessionID)
+func (s *fakeSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+	args := s.Called(ctx, userID, sessionID, finishTime)
 	return args.Error(0)
 }
 
@@ -142,6 +142,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 					LastSyncTime:  tt.serverLastSync,
 				}},
 				sessionStore: sessionStore,
+				logger:       logging.NewServerLog(),
 			}
 
 			resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -193,6 +194,7 @@ func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: sessionStore,
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -216,6 +218,7 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	handler := &SyncHandler{
 		hskStore:     &fakeHandshakeStore{err: errors.New("handshake store error")},
 		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -238,6 +241,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: newFakeSessionStore(t, CreateSessionAlreadyExists),
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{

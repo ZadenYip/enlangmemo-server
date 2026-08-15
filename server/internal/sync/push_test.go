@@ -37,7 +37,7 @@ func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID, ses
 	panic("MarkPushFinished should not be called")
 }
 
-func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID, sessionID string) error {
+func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
 	panic("FinishSync should not be called")
 }
 
