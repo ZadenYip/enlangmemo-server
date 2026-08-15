@@ -6,17 +6,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
-	syncstore "github.com/zadenyip/enlangmemo-server/internal/sync"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 )
 
 // 测试正常创建 session，并验证 redis 中的值是否正确
 func TestSessionStoreCreateSession(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
+	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
+	session := ss.SyncSession{
 		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStatePulling,
+		State:                       ss.SyncSessionStatePulling,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
 		SessionID:                   "session-id-1",
@@ -27,7 +27,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 
 	result, err := store.CreateSession(ctx, session)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, result)
+	require.Equal(t, ss.CreateSessionCreated, result)
 
 	key := "sync:" + session.UserID + ":sync_lock"
 	got, err := suite.Env.RDB.HGetAll(ctx, key).Result()
@@ -52,16 +52,16 @@ func TestSessionStoreCreateSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// 再次创建相同 session，应该返回 CreateSessionAlreadyExists
-	require.Equal(t, syncstore.CreateSessionAlreadyExists, result)
+	require.Equal(t, ss.CreateSessionAlreadyExists, result)
 }
 
 func TestSessionStoreClaimPushBatch(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
+	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
+	session := ss.SyncSession{
 		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStatePushing,
+		State:                       ss.SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
 		SessionID:                   "session-id-1",
@@ -72,12 +72,12 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 
 	createResult, err := store.CreateSession(ctx, session)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, createResult)
+	require.Equal(t, ss.CreateSessionCreated, createResult)
 
 	key := "sync:" + session.UserID + ":sync_lock"
 	claimResult, err := store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.ClaimPushBatchLuaOK, claimResult.LuaResult)
+	require.Equal(t, ss.ClaimPushBatchLuaOK, claimResult.LuaResult)
 	require.Equal(t, session.SyncCursorUSN, claimResult.AssignedUSN)
 	gotBatchSeq, err := suite.Env.RDB.HGet(ctx, key, "expected_batch_seq").Int64()
 	require.NoError(t, err)
@@ -89,19 +89,19 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 	// 测试 batch seq 不匹配
 	claimResult, err = store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.ClaimPushBatchLuaBatchSeqMismatch, claimResult.LuaResult)
+	require.Equal(t, ss.ClaimPushBatchLuaBatchSeqMismatch, claimResult.LuaResult)
 	require.Zero(t, claimResult.AssignedUSN)
 
 	// 测试 session id 不匹配
 	claimResult, err = store.ClaimPushBatch(ctx, session.UserID, "other-session", 2)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.ClaimPushBatchLuaSessionIDMismatch, claimResult.LuaResult)
+	require.Equal(t, ss.ClaimPushBatchLuaSessionIDMismatch, claimResult.LuaResult)
 	require.Zero(t, claimResult.AssignedUSN)
 
 	// 测试正确的新 batch seq
 	claimResult, err = store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 2)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.ClaimPushBatchLuaOK, claimResult.LuaResult)
+	require.Equal(t, ss.ClaimPushBatchLuaOK, claimResult.LuaResult)
 	require.Equal(t, session.SyncCursorUSN+1, claimResult.AssignedUSN)
 	gotBatchSeq, err = suite.Env.RDB.HGet(ctx, key, "expected_batch_seq").Int64()
 	require.NoError(t, err)
@@ -115,10 +115,10 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
+	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
+	session := ss.SyncSession{
 		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStateAwaitingPushOrFinish,
+		State:                       ss.SyncSessionStateAwaitingPushOrFinish,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
 		SessionID:                   "session-id-1",
@@ -129,28 +129,28 @@ func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 
 	createResult, err := store.CreateSession(ctx, session)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, createResult)
+	require.Equal(t, ss.CreateSessionCreated, createResult)
 
 	// 测试 AWAITING_PUSH_OR_FINISH 在 ClaimPushBatch 后能否正确切换到 PUSHING 状态
 	key := "sync:" + session.UserID + ":sync_lock"
 	claimResult, err := store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.ClaimPushBatchLuaOK, claimResult.LuaResult)
+	require.Equal(t, ss.ClaimPushBatchLuaOK, claimResult.LuaResult)
 	require.Equal(t, session.SyncCursorUSN, claimResult.AssignedUSN)
 
 	gotState, err := suite.Env.RDB.HGet(ctx, key, "state").Int64()
 	require.NoError(t, err)
-	require.Equal(t, int64(syncstore.SyncSessionStatePushing), gotState)
+	require.Equal(t, int64(ss.SyncSessionStatePushing), gotState)
 }
 
 // TestSessionStoreMarkPushFinished 测试 MarkPushFinished 将 session state 改为 AWAITING_FINISH
 func TestSessionStoreMarkPushFinished(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
+	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
+	session := ss.SyncSession{
 		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStatePushing,
+		State:                       ss.SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
 		SessionID:                   "session-id-1",
@@ -161,7 +161,7 @@ func TestSessionStoreMarkPushFinished(t *testing.T) {
 
 	createResult, err := store.CreateSession(ctx, session)
 	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, createResult)
+	require.Equal(t, ss.CreateSessionCreated, createResult)
 
 	key := "sync:" + session.UserID + ":sync_lock"
 	err = store.MarkPushFinished(ctx, session.UserID, session.SessionID)
@@ -169,7 +169,7 @@ func TestSessionStoreMarkPushFinished(t *testing.T) {
 
 	gotState, err := suite.Env.RDB.HGet(ctx, key, "state").Int64()
 	require.NoError(t, err)
-	require.Equal(t, int64(syncstore.SyncSessionStateAwaitingFinish), gotState)
+	require.Equal(t, int64(ss.SyncSessionStateAwaitingFinish), gotState)
 
 	err = store.MarkPushFinished(ctx, session.UserID, "other-session")
 	require.Error(t, err)

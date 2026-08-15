@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/zadenyip/enlangmemo-server/internal/server/session"
+	srvSession "github.com/zadenyip/enlangmemo-server/internal/server/session"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	"github.com/zadenyip/enlangmemo-server/internal/utils"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
@@ -60,15 +61,15 @@ func (h *SyncHandler) Handshake(
 func (h *SyncHandler) hskSession(ctx context.Context,
 	req *syncv1.HandshakeRequest,
 	userID string,
-) (SyncSession, error) {
-	sessionID, err := session.NewID(16)
+) (ss.SyncSession, error) {
+	sessionID, err := srvSession.NewID(16)
 	if err != nil {
 		h.logger.ErrorCtx(ctx, "failed to create session from request in SyncHandshake", "error", err)
-		return SyncSession{}, err
+		return ss.SyncSession{}, err
 	}
-	return SyncSession{
+	return ss.SyncSession{
 		UserID:                      userID,
-		State:                       SyncSessionStateUnspecified,
+		State:                       ss.SyncSessionStateUnspecified,
 		ExpectedBatchSeq:            0,
 		SyncCursorUSN:               0,
 		SessionID:                   sessionID,
@@ -118,7 +119,7 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 	case req.ClientSyncCursorUsn == colInfo.SyncCursorUSN:
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_NO_REMOTE_CHANGES
 		if req.HasLocalChanges {
-			hskSession.State = SyncSessionStatePushing
+			hskSession.State = ss.SyncSessionStatePushing
 			hskSession.SyncCursorUSN = colInfo.SyncCursorUSN
 			hskSession.ExpectedBatchSeq = 1
 		} else {
@@ -131,14 +132,14 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 	// 需要拉取服务器的更新
 	case req.ClientSyncCursorUsn < colInfo.SyncCursorUSN:
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_NEED_PULL
-		hskSession.State = SyncSessionStatePulling
+		hskSession.State = ss.SyncSessionStatePulling
 		hskSession.ExpectedBatchSeq = 1
 		hskSession.SyncCursorUSN = req.ClientSyncCursorUsn
 
 	// 需要上传客户端所有数据
 	case req.ClientSyncCursorUsn > colInfo.SyncCursorUSN:
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_UPLOAD_ALL
-		hskSession.State = SyncSessionStateAwaitingUploadAllConfirm
+		hskSession.State = ss.SyncSessionStateAwaitingUploadAllConfirm
 		hskSession.SyncCursorUSN = 0
 		hskSession.ExpectedBatchSeq = 1
 
@@ -150,10 +151,10 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 
 	result, err := h.sessionStore.CreateSession(ctx, hskSession)
 	switch {
-	case result == CreateSessionAlreadyExists:
+	case result == ss.CreateSessionAlreadyExists:
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_LOCKED_BY_OTHER_CLIENT
 		return connect.NewResponse(resp), nil
-	case result == CreateSessionCreated:
+	case result == ss.CreateSessionCreated:
 		h.logger.InfoCtx(ctx, "handshake session created", "userID", userID, "sessionID", hskSession.SessionID)
 		return connect.NewResponse(resp), nil
 	default:

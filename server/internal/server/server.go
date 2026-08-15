@@ -12,6 +12,7 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/server/middleware"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	"github.com/zadenyip/enlangmemo-server/internal/sync"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 )
 
 type Server struct {
@@ -46,7 +47,7 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 
 	enlangmemoHandler := enlangmemo.NewHandler(oaStore, userStore, logger)
 
-	syncSessionStore := sync.NewSessionStore(storeDeps.DB, storeDeps.Rdb, logger)
+	syncSessionStore := ss.NewSessionStore(storeDeps.DB, storeDeps.Rdb, logger)
 	pshStore := sync.NewPushChangeStore(storeDeps.DB, logger)
 	hskStore := sync.NewHandshakeStore(storeDeps.DB, logger)
 	syncHandler := sync.NewSyncHandler(oaStore, pshStore, hskStore, syncSessionStore)
