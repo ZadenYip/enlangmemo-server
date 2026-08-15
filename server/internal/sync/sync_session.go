@@ -87,8 +87,10 @@ const (
 	ClaimPushBatchLuaStateMismatch
 )
 
+type MarkPushFinishedResult int64
+
 const (
-	MarkPushFinishedErr int64 = iota
+	MarkPushFinishedErr MarkPushFinishedResult = iota
 	MarkPushFinishedOK
 	MarkPushFinishedSessionNotFound
 	MarkPushFinishedSessionIDMismatch
@@ -97,9 +99,9 @@ const (
 type CreateSessionResult int64
 
 const (
-	CreateSessionErr           CreateSessionResult = 0
-	CreateSessionAlreadyExists CreateSessionResult = 1
-	CreateSessionCreated       CreateSessionResult = 2
+	CreateSessionErr CreateSessionResult = iota
+	CreateSessionAlreadyExists
+	CreateSessionCreated
 )
 
 type SessionStore struct {
@@ -117,18 +119,6 @@ func NewSessionStore(rdb *redis.Client, logger logging.Logger) *SessionStore {
 func rdbSessionKey(userID string) string {
 	return "sync:" + userID + ":sync_lock"
 }
-
-//go:embed scripts/create_session.lua
-var createSessionLua string
-var createSessionScript = redis.NewScript(createSessionLua)
-
-//go:embed scripts/claim_push_batch.lua
-var claimPushBatchLua string
-var claimPushBatchScript = redis.NewScript(claimPushBatchLua)
-
-//go:embed scripts/mark_push_finished.lua
-var markPushFinishedLua string
-var markPushFinishedScript = redis.NewScript(markPushFinishedLua)
 
 // CreateSession 使用了 create_session.lua 脚本创建 SyncSession，保证原子性
 func (s *SessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
@@ -150,6 +140,10 @@ func (s *SessionStore) GetSession(ctx context.Context, userID string) (SyncSessi
 
 	return session, nil
 }
+
+//go:embed scripts/create_session.lua
+var createSessionLua string
+var createSessionScript = redis.NewScript(createSessionLua)
 
 func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
 	result, err := createSessionScript.Run(
@@ -175,6 +169,10 @@ func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (
 		return CreateSessionErr, fmt.Errorf("unknown create session result: %d", result)
 	}
 }
+
+//go:embed scripts/claim_push_batch.lua
+var claimPushBatchLua string
+var claimPushBatchScript = redis.NewScript(claimPushBatchLua)
 
 func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int64) (ClaimPushBatchResult, error) {
 	rawResult, err := claimPushBatchScript.Run(
@@ -225,6 +223,10 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID str
 	}
 }
 
+//go:embed scripts/mark_push_finished.lua
+var markPushFinishedLua string
+var markPushFinishedScript = redis.NewScript(markPushFinishedLua)
+
 func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
 	result, err := markPushFinishedScript.Run(
 		ctx,
@@ -238,7 +240,7 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID s
 		return err
 	}
 
-	switch result {
+	switch MarkPushFinishedResult(result) {
 	case MarkPushFinishedOK:
 		return nil
 	case MarkPushFinishedSessionNotFound:
