@@ -37,6 +37,10 @@ func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID, ses
 	panic("MarkPushFinished should not be called")
 }
 
+func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID, sessionID string) error {
+	panic("FinishSync should not be called")
+}
+
 func TestClaimPushBatch(t *testing.T) {
 	const wantAssignedUSN int64 = 13
 

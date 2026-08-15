@@ -64,6 +64,7 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 	var resp = &syncv1.HandshakeResponse{
 		SessionId:           nil,
 		ServerSyncCursorUsn: colInfo.SyncCursorUSN,
+		ServerLastSyncTime:  colInfo.LastSyncTime,
 		Status:              syncv1.HandshakeStatus_HANDSHAKE_STATUS_UNSPECIFIED,
 	}
 

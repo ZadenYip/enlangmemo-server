@@ -41,6 +41,7 @@ func newFakeSessionStore(t *testing.T, result CreateSessionResult) *fakeSessionS
 		store.AssertNotCalled(t, "GetSession", mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "ClaimPushBatch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "MarkPushFinished", mock.Anything, mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "FinishSync", mock.Anything, mock.Anything, mock.Anything)
 	})
 	return store
 }
@@ -66,11 +67,17 @@ func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, session
 	return args.Error(0)
 }
 
+func (s *fakeSessionStore) FinishSync(ctx context.Context, userID, sessionID string) error {
+	args := s.Called(ctx, userID, sessionID)
+	return args.Error(0)
+}
+
 func TestHandshakeStatusAndSessionState(t *testing.T) {
 	tests := []struct {
 		name            string
 		clientCursor    int64
 		serverCursor    int64
+		serverLastSync  int64
 		hasLocalChanges bool
 		wantStatus      syncv1.HandshakeStatus
 		wantState       SessionState
@@ -82,6 +89,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:            "no remote changes with local changes",
 			clientCursor:    10,
 			serverCursor:    10,
+			serverLastSync:  1_800_000_000_000,
 			hasLocalChanges: true,
 			wantStatus:      syncv1.HandshakeStatus_HANDSHAKE_STATUS_NO_REMOTE_CHANGES,
 			wantState:       SyncSessionStatePushing,
@@ -94,6 +102,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:            "no remote changes without local changes",
 			clientCursor:    10,
 			serverCursor:    10,
+			serverLastSync:  1_800_000_000_100,
 			hasLocalChanges: false,
 			wantStatus:      syncv1.HandshakeStatus_HANDSHAKE_STATUS_NO_REMOTE_CHANGES,
 			wantCreate:      false,
@@ -102,6 +111,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:           "need pull",
 			clientCursor:   8,
 			serverCursor:   10,
+			serverLastSync: 1_800_000_000_200,
 			wantStatus:     syncv1.HandshakeStatus_HANDSHAKE_STATUS_NEED_PULL,
 			wantState:      SyncSessionStatePulling,
 			wantBatchSeq:   1,
@@ -112,6 +122,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:           "upload all",
 			clientCursor:   12,
 			serverCursor:   10,
+			serverLastSync: 1_800_000_000_300,
 			wantStatus:     syncv1.HandshakeStatus_HANDSHAKE_STATUS_UPLOAD_ALL,
 			wantState:      SyncSessionStateAwaitingUploadAllConfirm,
 			wantBatchSeq:   1,
@@ -128,6 +139,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 					CollectionID:  "collection-1",
 					SyncCursorUSN: tt.serverCursor,
+					LastSyncTime:  tt.serverLastSync,
 				}},
 				sessionStore: sessionStore,
 			}
@@ -143,6 +155,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.wantStatus, resp.Msg.Status)
 			require.Equal(t, tt.serverCursor, resp.Msg.ServerSyncCursorUsn)
+			require.Equal(t, tt.serverLastSync, resp.Msg.ServerLastSyncTime)
 
 			var wantCreateInt int
 			if tt.wantCreate {
