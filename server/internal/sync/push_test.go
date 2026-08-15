@@ -8,33 +8,38 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
 type fakePushSessionStore struct {
-	claimResult    ClaimPushBatchLuaResult
+	claimResult    ss.ClaimPushBatchLuaResult
 	claimResultSet bool
 	claimErr       error
 	assignedUSN    int64
 }
 
-func (s *fakePushSessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
+func (s *fakePushSessionStore) CreateSession(ctx context.Context, session ss.SyncSession) (ss.CreateSessionResult, error) {
 	panic("CreateSession should not be called")
 }
 
-func (s *fakePushSessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
+func (s *fakePushSessionStore) GetSession(ctx context.Context, userID string) (ss.SyncSession, error) {
 	panic("GetSession should not be called")
 }
 
-func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ClaimPushBatchResult, error) {
+func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ss.ClaimPushBatchResult, error) {
 	if !s.claimResultSet && s.claimErr == nil {
-		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
+		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
 	}
-	return ClaimPushBatchResult{LuaResult: s.claimResult, AssignedUSN: s.assignedUSN}, s.claimErr
+	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedUSN: s.assignedUSN}, s.claimErr
 }
 
 func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
 	panic("MarkPushFinished should not be called")
+}
+
+func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+	panic("FinishSync should not be called")
 }
 
 func TestClaimPushBatch(t *testing.T) {
@@ -42,7 +47,7 @@ func TestClaimPushBatch(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		claimResult ClaimPushBatchLuaResult
+		claimResult ss.ClaimPushBatchLuaResult
 		claimErr    error
 		req         *syncv1.PushRequest
 		wantCode    connect.Code
@@ -50,7 +55,7 @@ func TestClaimPushBatch(t *testing.T) {
 	}{
 		{
 			name:        "success",
-			claimResult: ClaimPushBatchLuaOK,
+			claimResult: ss.ClaimPushBatchLuaOK,
 			req: &syncv1.PushRequest{
 				SessionId: "session-1",
 				BatchSeq:  2,
@@ -58,35 +63,35 @@ func TestClaimPushBatch(t *testing.T) {
 		},
 		{
 			name:        "missing session",
-			claimResult: ClaimPushBatchLuaSessionNotFound,
+			claimResult: ss.ClaimPushBatchLuaSessionNotFound,
 			req:         &syncv1.PushRequest{SessionId: "session-1", BatchSeq: 1},
 			wantCode:    connect.CodeFailedPrecondition,
 			wantError:   true,
 		},
 		{
 			name:        "session id mismatch",
-			claimResult: ClaimPushBatchLuaSessionIDMismatch,
+			claimResult: ss.ClaimPushBatchLuaSessionIDMismatch,
 			req:         &syncv1.PushRequest{SessionId: "other-session", BatchSeq: 1},
 			wantCode:    connect.CodeFailedPrecondition,
 			wantError:   true,
 		},
 		{
 			name:        "batch seq mismatch",
-			claimResult: ClaimPushBatchLuaBatchSeqMismatch,
+			claimResult: ss.ClaimPushBatchLuaBatchSeqMismatch,
 			req:         &syncv1.PushRequest{SessionId: "session-1", BatchSeq: 1},
 			wantCode:    connect.CodeFailedPrecondition,
 			wantError:   true,
 		},
 		{
 			name:        "state mismatch",
-			claimResult: ClaimPushBatchLuaStateMismatch,
+			claimResult: ss.ClaimPushBatchLuaStateMismatch,
 			req:         &syncv1.PushRequest{SessionId: "session-1", BatchSeq: 1},
 			wantCode:    connect.CodeFailedPrecondition,
 			wantError:   true,
 		},
 		{
 			name:        "unknown lua result",
-			claimResult: ClaimPushBatchLuaResult(99),
+			claimResult: ss.ClaimPushBatchLuaResult(99),
 			req:         &syncv1.PushRequest{SessionId: "session-1", BatchSeq: 1},
 			wantCode:    connect.CodeInternal,
 			wantError:   true,
@@ -116,7 +121,7 @@ func TestClaimPushBatch(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, ClaimPushBatchLuaOK, result.LuaResult)
+			require.Equal(t, ss.ClaimPushBatchLuaOK, result.LuaResult)
 			require.Equal(t, wantAssignedUSN, result.AssignedUSN)
 		})
 	}

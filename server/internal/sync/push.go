@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"connectrpc.com/connect"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
@@ -48,7 +49,7 @@ func (h *SyncHandler) Push(ctx context.Context,
 }
 
 // claimPushBatch 会校验 Push session 状态和 batch seq，并领取当前 batch 的 assigned_usn。
-func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushRequest, userID string) (ClaimPushBatchResult, error) {
+func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushRequest, userID string) (ss.ClaimPushBatchResult, error) {
 	result, err := h.sessionStore.ClaimPushBatch(
 		ctx,
 		userID,
@@ -56,21 +57,21 @@ func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushReques
 		int64(req.GetBatchSeq()),
 	)
 	if err != nil {
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)
 	}
 
 	switch result.LuaResult {
-	case ClaimPushBatchLuaOK:
+	case ss.ClaimPushBatchLuaOK:
 		return result, nil
-	case ClaimPushBatchLuaSessionNotFound:
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session not found"))
-	case ClaimPushBatchLuaSessionIDMismatch:
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session id mismatch"))
-	case ClaimPushBatchLuaBatchSeqMismatch:
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync batch seq mismatch"))
-	case ClaimPushBatchLuaStateMismatch:
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session state mismatch"))
+	case ss.ClaimPushBatchLuaSessionNotFound:
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session not found"))
+	case ss.ClaimPushBatchLuaSessionIDMismatch:
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session id mismatch"))
+	case ss.ClaimPushBatchLuaBatchSeqMismatch:
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync batch seq mismatch"))
+	case ss.ClaimPushBatchLuaStateMismatch:
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("sync session state mismatch"))
 	default:
-		return ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)
+		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)
 	}
 }

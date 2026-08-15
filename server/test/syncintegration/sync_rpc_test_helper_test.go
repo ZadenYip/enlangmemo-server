@@ -56,5 +56,6 @@ func startPushSync(t *testing.T, client syncv1connect.SyncServiceClient, accessT
 	require.NotNil(t, resp.SessionId)
 	require.NotEmpty(t, resp.GetSessionId())
 	require.Equal(t, int64(1), resp.ServerSyncCursorUsn)
+	require.Zero(t, resp.ServerLastSyncTime)
 	return resp
 }

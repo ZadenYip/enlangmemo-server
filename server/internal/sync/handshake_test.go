@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
@@ -18,7 +19,7 @@ type fakeHandshakeStore struct {
 	err     error
 }
 
-func (s *fakeHandshakeStore) GetCollectionInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
+func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
 	if s.err != nil {
 		return CollectionInfoForHandshake{}, s.err
 	}
@@ -28,41 +29,47 @@ func (s *fakeHandshakeStore) GetCollectionInfoForHandshake(ctx context.Context, 
 type fakeSessionStore struct {
 	mock.Mock
 
-	result         CreateSessionResult
+	result         ss.CreateSessionResult
 	err            error
-	createdSession SyncSession
+	createdSession ss.SyncSession
 	createCalls    int
 }
 
-func newFakeSessionStore(t *testing.T, result CreateSessionResult) *fakeSessionStore {
+func newFakeSessionStore(t *testing.T, result ss.CreateSessionResult) *fakeSessionStore {
 	t.Helper()
 	store := &fakeSessionStore{result: result}
 	t.Cleanup(func() {
 		store.AssertNotCalled(t, "GetSession", mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "ClaimPushBatch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		store.AssertNotCalled(t, "MarkPushFinished", mock.Anything, mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "FinishSync", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 	return store
 }
 
-func (s *fakeSessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
+func (s *fakeSessionStore) GetSession(ctx context.Context, userID string) (ss.SyncSession, error) {
 	args := s.Called(ctx, userID)
-	return args.Get(0).(SyncSession), args.Error(1)
+	return args.Get(0).(ss.SyncSession), args.Error(1)
 }
 
-func (s *fakeSessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
+func (s *fakeSessionStore) CreateSession(ctx context.Context, session ss.SyncSession) (ss.CreateSessionResult, error) {
 	s.createCalls++
 	s.createdSession = session
 	return s.result, s.err
 }
 
-func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ClaimPushBatchResult, error) {
+func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ss.ClaimPushBatchResult, error) {
 	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
-	return args.Get(0).(ClaimPushBatchResult), args.Error(1)
+	return args.Get(0).(ss.ClaimPushBatchResult), args.Error(1)
 }
 
 func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
 	args := s.Called(ctx, userID, sessionID)
+	return args.Error(0)
+}
+
+func (s *fakeSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+	args := s.Called(ctx, userID, sessionID, finishTime)
 	return args.Error(0)
 }
 
@@ -71,9 +78,10 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 		name            string
 		clientCursor    int64
 		serverCursor    int64
+		serverLastSync  int64
 		hasLocalChanges bool
 		wantStatus      syncv1.HandshakeStatus
-		wantState       SessionState
+		wantState       ss.SessionState
 		wantBatchSeq    int64
 		wantSyncCursor  int64
 		wantCreate      bool
@@ -82,9 +90,10 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:            "no remote changes with local changes",
 			clientCursor:    10,
 			serverCursor:    10,
+			serverLastSync:  1_800_000_000_000,
 			hasLocalChanges: true,
 			wantStatus:      syncv1.HandshakeStatus_HANDSHAKE_STATUS_NO_REMOTE_CHANGES,
-			wantState:       SyncSessionStatePushing,
+			wantState:       ss.SyncSessionStatePushing,
 			wantBatchSeq:    1,
 			wantSyncCursor:  10,
 			// SessionID
@@ -94,6 +103,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:            "no remote changes without local changes",
 			clientCursor:    10,
 			serverCursor:    10,
+			serverLastSync:  1_800_000_000_100,
 			hasLocalChanges: false,
 			wantStatus:      syncv1.HandshakeStatus_HANDSHAKE_STATUS_NO_REMOTE_CHANGES,
 			wantCreate:      false,
@@ -102,8 +112,9 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:           "need pull",
 			clientCursor:   8,
 			serverCursor:   10,
+			serverLastSync: 1_800_000_000_200,
 			wantStatus:     syncv1.HandshakeStatus_HANDSHAKE_STATUS_NEED_PULL,
-			wantState:      SyncSessionStatePulling,
+			wantState:      ss.SyncSessionStatePulling,
 			wantBatchSeq:   1,
 			wantSyncCursor: 8,
 			wantCreate:     true,
@@ -112,8 +123,9 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			name:           "upload all",
 			clientCursor:   12,
 			serverCursor:   10,
+			serverLastSync: 1_800_000_000_300,
 			wantStatus:     syncv1.HandshakeStatus_HANDSHAKE_STATUS_UPLOAD_ALL,
-			wantState:      SyncSessionStateAwaitingUploadAllConfirm,
+			wantState:      ss.SyncSessionStateAwaitingUploadAllConfirm,
 			wantBatchSeq:   1,
 			wantSyncCursor: 0,
 			wantCreate:     true,
@@ -123,13 +135,15 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", "user-1")
-			sessionStore := newFakeSessionStore(t, CreateSessionCreated)
+			sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 			handler := &SyncHandler{
 				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 					CollectionID:  "collection-1",
 					SyncCursorUSN: tt.serverCursor,
+					LastSyncTime:  tt.serverLastSync,
 				}},
 				sessionStore: sessionStore,
+				logger:       logging.NewServerLog(),
 			}
 
 			resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -143,6 +157,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.wantStatus, resp.Msg.Status)
 			require.Equal(t, tt.serverCursor, resp.Msg.ServerSyncCursorUsn)
+			require.Equal(t, tt.serverLastSync, resp.Msg.ServerLastSyncTime)
 
 			var wantCreateInt int
 			if tt.wantCreate {
@@ -173,13 +188,14 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 // TestHandshakeTimeSkewTooLargeDoesNotCreateSession 测试当客户端和服务器时间差超过 5 分钟时，握手返回 TIME_SKEW_TOO_LARGE
 func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
-	sessionStore := newFakeSessionStore(t, CreateSessionCreated)
+	sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: sessionStore,
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -202,7 +218,8 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
 		hskStore:     &fakeHandshakeStore{err: errors.New("handshake store error")},
-		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
+		sessionStore: newFakeSessionStore(t, ss.CreateSessionCreated),
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -224,7 +241,8 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: newFakeSessionStore(t, CreateSessionAlreadyExists),
+		sessionStore: newFakeSessionStore(t, ss.CreateSessionAlreadyExists),
+		logger:       logging.NewServerLog(),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -246,7 +264,7 @@ func TestHandshakeCollectionIDMismatch(t *testing.T) {
 			CollectionID:  "server-collection",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
+		sessionStore: newFakeSessionStore(t, ss.CreateSessionCreated),
 		logger:       logging.NewServerLog(),
 	}
 

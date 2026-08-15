@@ -7,18 +7,20 @@ import (
 	"connectrpc.com/validate"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
+	"github.com/zadenyip/enlangmemo-server/internal/sync/interceptor"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	"github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1/syncv1connect"
 )
 
 type SyncHandler struct {
 	oaStore      oauth.OAStorer
 	pshStore     PushChangeStorer
-	sessionStore SessionStorer
+	sessionStore ss.SessionStorer
 	hskStore     HandshakeStorer
 	logger       logging.Logger
 }
 
-func NewSyncHandler(oaStore oauth.OAStorer, pshStore PushChangeStorer, hskStore HandshakeStorer, sessionStore SessionStorer) *SyncHandler {
+func NewSyncHandler(oaStore oauth.OAStorer, pshStore PushChangeStorer, hskStore HandshakeStorer, sessionStore ss.SessionStorer) *SyncHandler {
 	return &SyncHandler{
 		oaStore:      oaStore,
 		pshStore:     pshStore,
@@ -32,7 +34,7 @@ func (h *SyncHandler) RegisterRoutes(mux *http.ServeMux) {
 
 	interceptors := connect.WithInterceptors(
 		validate.NewInterceptor(),
-		NewAuthInterceptor(h.oaStore),
+		interceptor.NewAuthInterceptor(h.oaStore),
 	)
 
 	path, httpHandler := syncv1connect.NewSyncServiceHandler(

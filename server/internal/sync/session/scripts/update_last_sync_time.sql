@@ -1,0 +1,1 @@
+UPDATE collections SET last_sync_time = ? WHERE user_id = ?;
