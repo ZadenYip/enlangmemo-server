@@ -20,6 +20,7 @@ const (
 var createSessionLua string
 var createSessionScript = redis.NewScript(createSessionLua)
 
+// CreateSession 使用了 create_session.lua 脚本创建 SyncSession，保证原子性
 func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
 	result, err := createSessionScript.Run(
 		ctx,

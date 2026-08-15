@@ -9,9 +9,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-//go:embed scripts/finish_sync.lua
-var checkSyncFinishLua string
-var checkSyncFinishScript = redis.NewScript(checkSyncFinishLua)
+//go:embed scripts/check_finish_session.lua
+var checkFinishSessionLua string
+var checkFinishSessionScript = redis.NewScript(checkFinishSessionLua)
 
 type FinishSyncLuaResult int64
 
@@ -27,7 +27,7 @@ const (
 var updateLastSyncTimeSQL string
 
 func (s *SessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
-	result, err := checkSyncFinishScript.Run(
+	result, err := checkFinishSessionScript.Run(
 		ctx,
 		s.rdb,
 		[]string{rdbSessionKey(userID)},
@@ -67,11 +67,20 @@ func (s *SessionStore) FinishSync(ctx context.Context, userID, sessionID string,
 }
 
 //go:embed scripts/release_sync_session.lua
-var releaseSyncSessionLua string
-var releaseSyncSessionScript = redis.NewScript(releaseSyncSessionLua)
+var releaseSessionLua string
+var releaseSessionScript = redis.NewScript(releaseSessionLua)
+
+type ReleaseSessionLuaResult int64
+
+const (
+	ReleaseSessionLuaErr ReleaseSessionLuaResult = iota
+	ReleaseSessionLuaOK
+	ReleaseSessionLuaNotFound
+	ReleaseSessionLuaIDMismatch
+)
 
 func (s *SessionStore) releaseSyncSession(ctx context.Context, userID, sessionID string) error {
-	result, err := releaseSyncSessionScript.Run(
+	result, err := releaseSessionScript.Run(
 		ctx,
 		s.rdb,
 		[]string{rdbSessionKey(userID)},
@@ -82,14 +91,18 @@ func (s *SessionStore) releaseSyncSession(ctx context.Context, userID, sessionID
 		return connect.NewError(connect.CodeInternal, nil)
 	}
 
-	switch FinishSyncLuaResult(result) {
-	case FinishSyncLuaOK:
+	return s.handleReleaseResult(ctx, userID, sessionID, ReleaseSessionLuaResult(result))
+}
+
+func (s *SessionStore) handleReleaseResult(ctx context.Context, userID, sessionID string, result ReleaseSessionLuaResult) error {
+	switch result {
+	case ReleaseSessionLuaOK:
 		return nil
-	case FinishSyncLuaSessionNotFound:
+	case ReleaseSessionLuaNotFound:
 		s.logger.ErrorCtx(ctx, "sync session not found when releasing sync session", "userID", userID, "sessionID", sessionID)
 		errInfo := errors.New("sync session not found when releasing sync session")
 		return connect.NewError(connect.CodeFailedPrecondition, errInfo)
-	case FinishSyncLuaSessionIDMismatch:
+	case ReleaseSessionLuaIDMismatch:
 		s.logger.ErrorCtx(ctx, "sync session id mismatch when releasing sync session", "userID", userID, "sessionID", sessionID)
 		errInfo := errors.New("sync session id mismatch when releasing sync session")
 		return connect.NewError(connect.CodeFailedPrecondition, errInfo)

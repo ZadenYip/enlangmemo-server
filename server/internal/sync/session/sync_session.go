@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"fmt"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
@@ -90,25 +89,4 @@ func NewSessionStore(db *sql.DB, rdb *redis.Client, logger logging.Logger) *Sess
 
 func rdbSessionKey(userID string) string {
 	return "sync:" + userID + ":sync_lock"
-}
-
-// CreateSession 使用了 create_session.lua 脚本创建 SyncSession，保证原子性
-func (s *SessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
-	cmd := s.rdb.HGetAll(ctx, rdbSessionKey(userID))
-	fields, err := cmd.Result()
-	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to get sync session", "userID", userID, "error", err)
-		return SyncSession{}, err
-	}
-	if len(fields) == 0 {
-		return SyncSession{}, fmt.Errorf("sync session not found for userID %s", userID)
-	}
-
-	var session SyncSession
-	if err := cmd.Scan(&session); err != nil {
-		s.logger.ErrorCtx(ctx, "failed to scan sync session", "userID", userID, "fields", fields, "error", err)
-		return SyncSession{}, err
-	}
-
-	return session, nil
 }
