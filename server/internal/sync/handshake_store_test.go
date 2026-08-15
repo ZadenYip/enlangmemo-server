@@ -25,7 +25,7 @@ func TestGetCollectionInfoForHandshakeReturnsUnderlyingQueryError(t *testing.T) 
 
 	store := NewHandshakeStore(db, logging.NewServerLog())
 
-	info, err := store.GetCollectionInfoForHandshake(t.Context(), "10000")
+	info, err := store.GetColInfoForHandshake(t.Context(), "10000")
 
 	require.Empty(t, info)
 	require.ErrorIs(t, err, wantErr)
@@ -53,7 +53,7 @@ func TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatab
 
 	store := NewHandshakeStore(db, logging.NewServerLog())
 
-	info, err := store.GetCollectionInfoForHandshake(t.Context(), "10000")
+	info, err := store.GetColInfoForHandshake(t.Context(), "10000")
 
 	require.Empty(t, info)
 	require.Error(t, err)

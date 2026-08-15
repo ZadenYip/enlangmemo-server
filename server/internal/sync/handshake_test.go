@@ -18,7 +18,7 @@ type fakeHandshakeStore struct {
 	err     error
 }
 
-func (s *fakeHandshakeStore) GetCollectionInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
+func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
 	if s.err != nil {
 		return CollectionInfoForHandshake{}, s.err
 	}

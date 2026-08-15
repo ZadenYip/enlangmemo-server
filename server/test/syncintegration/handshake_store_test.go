@@ -16,7 +16,7 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	userID := createSyncTestUser(t, "syncuser3")
 	store := syncstore.NewHandshakeStore(suite.Env.DB, logging.NewServerLog())
 
-	info, err := store.GetCollectionInfoForHandshake(ctx, userID)
+	info, err := store.GetColInfoForHandshake(ctx, userID)
 	require.NoError(t, err)
 	require.Empty(t, info.CollectionID)
 	require.Equal(t, int64(1), info.SyncCursorUSN)
@@ -31,7 +31,7 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 		isDeleted:           true,
 	})
 
-	info, err = store.GetCollectionInfoForHandshake(ctx, userID)
+	info, err = store.GetColInfoForHandshake(ctx, userID)
 	require.NoError(t, err)
 	require.Equal(t, collectionID, info.CollectionID)
 	require.Equal(t, int32(15), info.SQLiteSchemaVersion)

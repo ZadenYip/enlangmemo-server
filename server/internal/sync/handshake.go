@@ -21,7 +21,7 @@ func (h *SyncHandler) Handshake(
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
-	colInfo, err := h.hskStore.GetCollectionInfoForHandshake(ctx, userID)
+	colInfo, err := h.hskStore.GetColInfoForHandshake(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
