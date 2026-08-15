@@ -21,7 +21,27 @@ func (h *SyncHandler) Handshake(
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
+	h.logger.InfoCtx(ctx, "handshake request received",
+		"userID", userID,
+		"clientCollectionID", r.Msg.CollectionId,
+		"clientSyncCursorUsn", r.Msg.ClientSyncCursorUsn,
+		"clientLastSyncTime", r.Msg.ClientLastSyncTime,
+		"clientNow", r.Msg.ClientNow,
+		"hasLocalChanges", r.Msg.HasLocalChanges,
+		"deviceID", r.Msg.DeviceId,
+		"deviceName", r.Msg.DeviceName,
+		"protocolVersion", r.Msg.ProtocolVersion,
+	)
+
 	colInfo, err := h.hskStore.GetColInfoForHandshake(ctx, userID)
+
+	h.logger.InfoCtx(ctx, "handshake collection info retrieved",
+		"userID", userID,
+		"collectionID", colInfo.CollectionID,
+		"syncCursorUSN", colInfo.SyncCursorUSN,
+		"lastSyncTime", colInfo.LastSyncTime,
+	)
+
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
@@ -134,6 +154,7 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_LOCKED_BY_OTHER_CLIENT
 		return connect.NewResponse(resp), nil
 	case result == CreateSessionCreated:
+		h.logger.InfoCtx(ctx, "handshake session created", "userID", userID, "sessionID", hskSession.SessionID)
 		return connect.NewResponse(resp), nil
 	default:
 		return nil, connect.NewError(connect.CodeInternal, nil)
