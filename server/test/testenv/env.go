@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"testing"
 
+	"connectrpc.com/connect"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -110,6 +111,10 @@ func (s *Suite) StartHTTPServer() {
 	s.Client.Transport = &TraceparentTransport{Base: s.Client.Transport}
 }
 
+func ConnectRPCClient[T any](s *Suite, newClient func(connect.HTTPClient, string, ...connect.ClientOption) T, opts ...connect.ClientOption) T {
+	return newClient(s.Client, s.Server.URL, opts...)
+}
+
 type TraceparentTransport struct {
 	Base http.RoundTripper
 }
@@ -164,9 +169,9 @@ func Start(ctx context.Context) (*Env, error) {
 func schemaPath() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		return filepath.Join("docker", "mysql-init-scripts", "000_schema.sql")
+		return filepath.Join("docker", "mysql", "mysql-init-scripts", "000_schema.sql")
 	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "docker", "mysql-init-scripts", "000_schema.sql")
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "docker", "mysql", "mysql-init-scripts", "000_schema.sql")
 }
 
 func (e *Env) configure(ctx context.Context) error {

@@ -10,13 +10,13 @@ import (
 	syncstore "github.com/zadenyip/enlangmemo-server/internal/sync"
 )
 
-func TestCollectionStoreGetColInfoForHandshake(t *testing.T) {
+func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
 	userID := createSyncTestUser(t, "syncuser3")
-	store := syncstore.NewCollectionStore(suite.Env.DB, logging.NewServerLog())
+	store := syncstore.NewHandshakeStore(suite.Env.DB, logging.NewServerLog())
 
-	info, err := store.GetColInfoForHandshake(ctx, userID)
+	info, err := store.GetCollectionInfoForHandshake(ctx, userID)
 	require.NoError(t, err)
 	require.Empty(t, info.CollectionID)
 	require.Equal(t, int64(1), info.SyncCursorUSN)
@@ -31,56 +31,13 @@ func TestCollectionStoreGetColInfoForHandshake(t *testing.T) {
 		isDeleted:           true,
 	})
 
-	info, err = store.GetColInfoForHandshake(ctx, userID)
+	info, err = store.GetCollectionInfoForHandshake(ctx, userID)
 	require.NoError(t, err)
 	require.Equal(t, collectionID, info.CollectionID)
 	require.Equal(t, int32(15), info.SQLiteSchemaVersion)
 	require.Equal(t, int64(1_800_000_000_000), info.LastSyncTime)
 	require.Equal(t, int64(88), info.SyncCursorUSN)
 	require.True(t, info.IsDeleted)
-}
-
-func TestSessionStoreCreateSession(t *testing.T) {
-	resetEnv(t)
-	ctx := t.Context()
-	store := syncstore.NewSessionStore(suite.Env.RDB, logging.NewServerLog())
-	session := syncstore.SyncSession{
-		UserID:                      "session-user-1",
-		State:                       syncstore.SyncSessionStatePulling,
-		ExpectedBatchSeq:            1,
-		SyncCursorUSN:               12,
-		SessionID:                   "session-id-1",
-		CliSyncCursorUSNAtHandshake: 3,
-		SrvSyncCursorUSNAtHandshake: 12,
-		DeviceID:                    "device-1",
-	}
-
-	result, err := store.CreateSession(ctx, session)
-	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionCreated, result)
-
-	key := "sync:" + session.UserID + ":sync_lock"
-	got, err := suite.Env.RDB.HGetAll(ctx, key).Result()
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"user_id":                             session.UserID,
-		"state":                               strconv.FormatInt(int64(session.State), 10),
-		"expected_batch_seq":                  "1",
-		"sync_cursor_usn":                     "12",
-		"session_id":                          session.SessionID,
-		"client_sync_cursor_usn_at_handshake": "3",
-		"server_sync_cursor_usn_at_handshake": "12",
-		"device_id":                           session.DeviceID,
-	}, got)
-
-	ttl, err := suite.Env.RDB.TTL(ctx, key).Result()
-	require.NoError(t, err)
-	require.Positive(t, ttl)
-	require.LessOrEqual(t, ttl.Seconds(), float64(60))
-
-	result, err = store.CreateSession(ctx, session)
-	require.NoError(t, err)
-	require.Equal(t, syncstore.CreateSessionAlreadyExists, result)
 }
 
 type syncTestCollectionRow struct {
@@ -90,6 +47,7 @@ type syncTestCollectionRow struct {
 	isDeleted           bool
 }
 
+// loginID 长度不能超过 16 字符
 func createSyncTestUser(t *testing.T, loginID string) string {
 	t.Helper()
 	result, err := suite.Env.DB.ExecContext(

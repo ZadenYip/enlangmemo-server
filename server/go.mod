@@ -14,7 +14,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.43.0
-	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.2.4
+	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.2.5
 )
 
 require (

@@ -7,34 +7,63 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
-type fakeCollectionStore struct {
-	colInfo ColInfoForHandshake
+type fakeHandshakeStore struct {
+	colInfo CollectionInfoForHandshake
 	err     error
 }
 
-func (s *fakeCollectionStore) GetColInfoForHandshake(ctx context.Context, userID string) (ColInfoForHandshake, error) {
+func (s *fakeHandshakeStore) GetCollectionInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
 	if s.err != nil {
-		return ColInfoForHandshake{}, s.err
+		return CollectionInfoForHandshake{}, s.err
 	}
 	return s.colInfo, nil
 }
 
 type fakeSessionStore struct {
+	mock.Mock
+
 	result         CreateSessionResult
 	err            error
 	createdSession SyncSession
 	createCalls    int
 }
 
+func newFakeSessionStore(t *testing.T, result CreateSessionResult) *fakeSessionStore {
+	t.Helper()
+	store := &fakeSessionStore{result: result}
+	t.Cleanup(func() {
+		store.AssertNotCalled(t, "GetSession", mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "ClaimPushBatch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		store.AssertNotCalled(t, "MarkPushFinished", mock.Anything, mock.Anything, mock.Anything)
+	})
+	return store
+}
+
+func (s *fakeSessionStore) GetSession(ctx context.Context, userID string) (SyncSession, error) {
+	args := s.Called(ctx, userID)
+	return args.Get(0).(SyncSession), args.Error(1)
+}
+
 func (s *fakeSessionStore) CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error) {
 	s.createCalls++
 	s.createdSession = session
 	return s.result, s.err
+}
+
+func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ClaimPushBatchResult, error) {
+	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
+	return args.Get(0).(ClaimPushBatchResult), args.Error(1)
+}
+
+func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
+	args := s.Called(ctx, userID, sessionID)
+	return args.Error(0)
 }
 
 func TestHandshakeStatusAndSessionState(t *testing.T) {
@@ -94,9 +123,9 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", "user-1")
-			sessionStore := &fakeSessionStore{result: CreateSessionCreated}
+			sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 			handler := &SyncHandler{
-				colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 					CollectionID:  "collection-1",
 					SyncCursorUSN: tt.serverCursor,
 				}},
@@ -144,9 +173,9 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 // TestHandshakeTimeSkewTooLargeDoesNotCreateSession 测试当客户端和服务器时间差超过 5 分钟时，握手返回 TIME_SKEW_TOO_LARGE
 func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
-	sessionStore := &fakeSessionStore{result: CreateSessionCreated}
+	sessionStore := newFakeSessionStore(t, CreateSessionCreated)
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
@@ -172,8 +201,8 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	// 测试 collection store 返回错误时，握手返回 INTERNAL 错误
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore:     &fakeCollectionStore{err: errors.New("collection store error")},
-		sessionStore: &fakeSessionStore{result: CreateSessionCreated},
+		hskStore:     &fakeHandshakeStore{err: errors.New("handshake store error")},
+		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -191,11 +220,11 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 	// 测试 session store 返回已经存在会话时，握手返回 LOCKED_BY_OTHER_CLIENT 状态
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: &fakeSessionStore{result: CreateSessionAlreadyExists},
+		sessionStore: newFakeSessionStore(t, CreateSessionAlreadyExists),
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
@@ -213,11 +242,11 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 func TestHandshakeCollectionIDMismatch(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", "user-1")
 	handler := &SyncHandler{
-		colStore: &fakeCollectionStore{colInfo: ColInfoForHandshake{
+		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "server-collection",
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: &fakeSessionStore{result: CreateSessionCreated},
+		sessionStore: newFakeSessionStore(t, CreateSessionCreated),
 		logger:       logging.NewServerLog(),
 	}
 

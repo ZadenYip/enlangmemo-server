@@ -21,7 +21,7 @@ func (h *SyncHandler) Handshake(
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
-	colInfo, err := h.colStore.GetColInfoForHandshake(ctx, userID)
+	colInfo, err := h.hskStore.GetCollectionInfoForHandshake(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
@@ -41,7 +41,7 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 	req *syncv1.HandshakeRequest,
 	userID string,
 ) (SyncSession, error) {
-	sessionID, err := session.NewID(session.DefaultIDLen)
+	sessionID, err := session.NewID(16)
 	if err != nil {
 		h.logger.ErrorCtx(ctx, "failed to create session from request in SyncHandshake", "error", err)
 		return SyncSession{}, err
@@ -59,7 +59,7 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 }
 
 // 根据客户端集合状态和服务器集合状态，判断握手的状态
-func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, colInfo ColInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
+func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, colInfo CollectionInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
 
 	var resp = &syncv1.HandshakeResponse{
 		SessionId:           nil,

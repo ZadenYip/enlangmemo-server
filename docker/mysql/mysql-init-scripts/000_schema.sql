@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS sync_units (
     user_id BIGINT UNSIGNED NOT NULL,
+    usn BIGINT NOT NULL,
 
     entity_id BINARY(16) NOT NULL,
     entity_type TINYINT NOT NULL COMMENT '1=collection, 2=deck, 3=note_type, 4=note, 5=processing_note, 6=card, 7=review_log',
     op TINYINT NOT NULL COMMENT '1=UPSERT, 2=DELETE',
 
-    usn BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
     PRIMARY KEY (user_id, entity_id),
@@ -41,12 +41,12 @@ CREATE TABLE IF NOT EXISTS collections (
     user_id BIGINT UNSIGNED NOT NULL,
     -- UUIDv7
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     sqlite_schema_version INT NOT NULL DEFAULT 0,
     last_sync_time BIGINT NOT NULL DEFAULT 0,
     sync_cursor_usn BIGINT NOT NULL DEFAULT 0,
 
-    usn BIGINT NOT NULL,
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
     config JSON NOT NULL,
@@ -60,8 +60,8 @@ CREATE TABLE IF NOT EXISTS decks (
     user_id BIGINT UNSIGNED NOT NULL,
     -- UUIDv7
     id BINARY(16) NOT NULL,
-
     usn BIGINT NOT NULL,
+
     name VARCHAR(32) NOT NULL,
     updated_at BIGINT NOT NULL,
 
@@ -79,11 +79,11 @@ CREATE TABLE IF NOT EXISTS decks (
 CREATE TABLE IF NOT EXISTS note_types (
     user_id BIGINT UNSIGNED NOT NULL,
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     name VARCHAR(32) NOT NULL,
     preset_template_id INT NOT NULL DEFAULT 0,
 
-    usn BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
     note_template JSON NOT NULL,
@@ -96,10 +96,10 @@ CREATE TABLE IF NOT EXISTS note_types (
 CREATE TABLE IF NOT EXISTS notes (
     user_id BIGINT UNSIGNED NOT NULL,
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     note_type_id BINARY(16) NOT NULL,
 
-    usn BIGINT NOT NULL,
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
@@ -116,10 +116,10 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE TABLE IF NOT EXISTS processing_notes (
     user_id BIGINT UNSIGNED NOT NULL,
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     note_type_id BINARY(16) NOT NULL,
 
-    usn BIGINT NOT NULL,
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
@@ -134,11 +134,11 @@ CREATE TABLE IF NOT EXISTS processing_notes (
 CREATE TABLE IF NOT EXISTS cards (
     user_id BIGINT UNSIGNED NOT NULL,
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     note_id BINARY(16) NOT NULL,
     deck_id BINARY(16) NOT NULL,
 
-    usn BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
     difficulty DOUBLE NOT NULL,
@@ -161,9 +161,9 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE TABLE IF NOT EXISTS review_logs (
     user_id BIGINT UNSIGNED NOT NULL,
     id BINARY(16) NOT NULL,
+    usn BIGINT NOT NULL,
 
     card_id BINARY(16) NOT NULL,
-    usn BIGINT NOT NULL,
 
     review_time BIGINT NOT NULL,
     scheduled_days INT NOT NULL,

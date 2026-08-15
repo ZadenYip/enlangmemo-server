@@ -1,0 +1,40 @@
+-- params:
+--   user_id, id,
+--   note_id, deck_id, usn, updated_at,
+--   difficulty, stability, scheduled_days, due, last_review,
+--   lapses, learning_steps, repetitions, state, queue
+INSERT INTO cards (
+  user_id,
+  id,
+  note_id,
+  deck_id,
+  usn,
+  updated_at,
+  difficulty,
+  stability,
+  scheduled_days,
+  due,
+  last_review,
+  lapses,
+  learning_steps,
+  repetitions,
+  state,
+  queue,
+  is_deleted
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+ON DUPLICATE KEY UPDATE
+  note_id = VALUES(note_id),
+  deck_id = VALUES(deck_id),
+  usn = VALUES(usn),
+  updated_at = VALUES(updated_at),
+  difficulty = VALUES(difficulty),
+  stability = VALUES(stability),
+  scheduled_days = VALUES(scheduled_days),
+  due = VALUES(due),
+  last_review = VALUES(last_review),
+  lapses = VALUES(lapses),
+  learning_steps = VALUES(learning_steps),
+  repetitions = VALUES(repetitions),
+  state = VALUES(state),
+  queue = VALUES(queue),
+  is_deleted = 0;

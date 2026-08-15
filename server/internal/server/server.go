@@ -47,8 +47,9 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 	enlangmemoHandler := enlangmemo.NewHandler(oaStore, userStore, logger)
 
 	syncSessionStore := sync.NewSessionStore(storeDeps.Rdb, logger)
-	colStore := sync.NewCollectionStore(storeDeps.DB, logger)
-	syncHandler := sync.NewSyncHandler(oaStore, colStore, syncSessionStore)
+	pshStore := sync.NewPushChangeStore(storeDeps.DB, logger)
+	hskStore := sync.NewHandshakeStore(storeDeps.DB, logger)
+	syncHandler := sync.NewSyncHandler(oaStore, pshStore, hskStore, syncSessionStore)
 
 	return &Server{
 		log:               logger,
