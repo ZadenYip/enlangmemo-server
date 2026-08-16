@@ -39,6 +39,8 @@ func (h *SyncHandler) RegisterRoutes(mux *http.ServeMux) {
 
 	path, httpHandler := syncv1connect.NewSyncServiceHandler(
 		h,
+		// 设置最大 Protobuf-Msg 大小为 512KB，防止恶意请求
+		connect.WithReadMaxBytes(1024*512),
 		interceptors,
 	)
 
