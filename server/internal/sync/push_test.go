@@ -27,7 +27,7 @@ func (s *fakePushSessionStore) GetSession(ctx context.Context, userID string) (s
 	panic("GetSession should not be called")
 }
 
-func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ss.ClaimPushBatchResult, error) {
+func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
 	if !s.claimResultSet && s.claimErr == nil {
 		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
 	}

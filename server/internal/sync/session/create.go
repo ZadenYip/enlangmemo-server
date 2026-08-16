@@ -56,6 +56,6 @@ func sessionScriptArgs(session SyncSession) []any {
 		session.CliSyncCursorUSNAtHandshake,
 		session.SrvSyncCursorUSNAtHandshake,
 		session.DeviceID,
-		int64(syncSessionTTLSecs),
+		syncSessionTTLSecs,
 	}
 }

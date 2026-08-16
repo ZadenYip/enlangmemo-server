@@ -28,7 +28,7 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID s
 		s.rdb,
 		[]string{rdbSessionKey(userID)},
 		sessionID,
-		int64(syncSessionTTLSecs),
+		syncSessionTTLSecs,
 	).Int64()
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to run mark push finished script", "userID", userID, "sessionID", sessionID, "error", err)

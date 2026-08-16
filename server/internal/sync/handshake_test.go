@@ -58,7 +58,7 @@ func (s *fakeSessionStore) CreateSession(ctx context.Context, session ss.SyncSes
 	return s.result, s.err
 }
 
-func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ss.ClaimPushBatchResult, error) {
+func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
 	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
 	return args.Get(0).(ss.ClaimPushBatchResult), args.Error(1)
 }

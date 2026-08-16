@@ -54,7 +54,7 @@ func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushReques
 		ctx,
 		userID,
 		req.GetSessionId(),
-		int64(req.GetBatchSeq()),
+		req.GetBatchSeq(),
 	)
 	if err != nil {
 		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)

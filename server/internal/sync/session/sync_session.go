@@ -64,10 +64,13 @@ type SessionStorer interface {
 	//
 	// Session 超时时间为 60 秒
 	CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error)
+
 	// ClaimPushBatch 校验 Push session 和 batch，并分配 assigned_usn（可用的下个 sync_cursor_usn）
-	ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int64) (ClaimPushBatchResult, error)
+	ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error)
+
 	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
 	MarkPushFinished(ctx context.Context, userID, sessionID string) error
+
 	// FinishSync 在客户端调用 FinishSync 后，删除当前用户的 SyncSession，表示本次同步完成
 	// 会验证 sessionID 是否匹配以及 当前 state 可否 FinishSync，若不行则返回 connect.NewError 创建的错误
 	FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error
