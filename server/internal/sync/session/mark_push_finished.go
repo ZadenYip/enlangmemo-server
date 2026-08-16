@@ -31,7 +31,7 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID s
 		int64(syncSessionTTLSecs),
 	).Int64()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to mark push finished", "userID", userID, "sessionID", sessionID, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to run mark push finished script", "userID", userID, "sessionID", sessionID, "error", err)
 		return err
 	}
 
