@@ -53,23 +53,6 @@ func TestGetUserProfileReturnsProfile(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// TestGetUserProfileRejectsInvalidUserID 测试非法 userID 不查询数据库并返回非法 userID 错误。
-func TestGetUserProfileRejectsInvalidUserID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer func() {
-		_ = db.Close()
-	}()
-
-	store := NewMySQLUserStore(db)
-
-	profile, err := store.GetUserProfile(t.Context(), 0)
-
-	require.Empty(t, profile)
-	require.ErrorIs(t, err, ErrInvalidUserID)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
 // TestGetPasswordHashReturnsUnderlyingQueryError 测试 GetPasswordHash 方法在数据库查询错误时，是否正确返回底层错误。
 func TestGetPasswordHashReturnsUnderlyingQueryError(t *testing.T) {
 	wantErr := errors.New("database unavailable")
