@@ -15,7 +15,7 @@ func (h *SyncHandler) Handshake(
 	ctx context.Context,
 	r *connect.Request[syncv1.HandshakeRequest],
 ) (*connect.Response[syncv1.HandshakeResponse], error) {
-	userID, err := userIDFromContext(ctx)
+	userID, err := userIDFromCtx(ctx)
 	if err != nil {
 		// 不应该出现这个状况，因为 AuthInterceptor 已经放入 userID 进 context 了
 		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Handshake", "error", err)

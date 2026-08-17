@@ -7,7 +7,7 @@ import (
 
 var errInvalidContextUserID = errors.New("invalid userID in context")
 
-func userIDFromContext(ctx context.Context) (int64, error) {
+func userIDFromCtx(ctx context.Context) (int64, error) {
 	userID, ok := ctx.Value("userID").(int64)
 	if !ok || userID <= 0 {
 		return 0, errInvalidContextUserID

@@ -12,7 +12,7 @@ import (
 func (h *SyncHandler) Push(ctx context.Context,
 	req *connect.Request[syncv1.PushRequest],
 ) (*connect.Response[syncv1.PushResponse], error) {
-	userID, err := userIDFromContext(ctx)
+	userID, err := userIDFromCtx(ctx)
 	if err != nil {
 		// 不应该出现这个状况，因为 AuthInterceptor 已经放入 userID 进 context 了
 		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Push", "error", err)
