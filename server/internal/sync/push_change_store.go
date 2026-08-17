@@ -250,8 +250,7 @@ func (s *PushChangeStore) applyNoteUpsert(ctx context.Context, info applyChangeI
 	}
 	_, err = stmt.ExecContext(ctx, info.userID, entityUUID, noteTypeID,
 		info.assignedUSN,
-		payload.CreatedAt, payload.UpdatedAt, nullableInt32(payload.SenseId), nullableString(payload.SortField),
-		nullableString(payload.SearchFields), payload.FieldsJson)
+		payload.CreatedAt, payload.UpdatedAt, nullableInt32(payload.SenseId), payload.FieldsJson)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert note", "error", err)
 		return err

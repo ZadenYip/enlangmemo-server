@@ -104,8 +104,6 @@ CREATE TABLE IF NOT EXISTS notes (
     updated_at BIGINT NOT NULL,
 
     sense_id INT UNSIGNED NULL,
-    sort_field TEXT NULL,
-    search_fields TEXT NULL,
     fields JSON NOT NULL,
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
