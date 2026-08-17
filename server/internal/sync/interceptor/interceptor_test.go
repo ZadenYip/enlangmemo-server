@@ -58,7 +58,7 @@ func TestAuthInterceptorSuccess(t *testing.T) {
 	next := func(ctx context.Context, r connect.AnyRequest) (connect.AnyResponse, error) {
 		nextCalled = true
 		// 验证 userID 被中间件是否加进了 context 中
-		require.Equal(t, 10001, ctx.Value("userID"))
+		require.Equal(t, int64(10001), ctx.Value("userID"))
 		require.Same(t, req, r)
 		return connect.NewResponse(&syncv1.HandshakeResponse{}), nil
 	}
