@@ -7,13 +7,16 @@
 -- ARGV[6] = client_sync_cursor_usn_at_handshake
 -- ARGV[7] = server_sync_cursor_usn_at_handshake
 -- ARGV[8] = device_id
--- ARGV[9] = ttl seconds
+-- ARGV[9] = pull_entity_queue
+-- ARGV[10] = ttl seconds
 --
 -- return 1: session 已存在
 -- return 2: session 创建成功
 -- 抛出 error: 其他错误
 
 local sessionKey = KEYS[1]
+local STATE_PULLING = 1
+local state = tonumber(ARGV[2])
 
 if redis.call("EXISTS", sessionKey) == 1 then
   return 1
@@ -30,6 +33,10 @@ redis.call("HSET", sessionKey,
   "device_id", ARGV[8]
 )
 
-redis.call("EXPIRE", sessionKey, ARGV[9])
+if state == STATE_PULLING then
+  redis.call("HSET", sessionKey, "pull_entity_queue", ARGV[9])
+end
+
+redis.call("EXPIRE", sessionKey, ARGV[10])
 
 return 2

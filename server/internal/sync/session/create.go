@@ -56,6 +56,7 @@ func sessionScriptArgs(session SyncSession) []any {
 		session.CliSyncCursorUSNAtHandshake,
 		session.SrvSyncCursorUSNAtHandshake,
 		session.DeviceID,
+		session.PullEntityQueue,
 		syncSessionTTLSecs,
 	}
 }

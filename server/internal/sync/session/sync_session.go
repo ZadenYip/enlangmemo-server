@@ -26,8 +26,16 @@ type SyncSession struct {
 	// 进入 Pulling、Pushing、UploadingAll 或 AwaitingPushOrFinish 状态时重置为 1
 	ExpectedBatchSeq int64 `redis:"expected_batch_seq"`
 
-	// SyncCursorUSN 是当前 session 已处理到的 USN 上界 / 下一次处理起点
+	// SyncCursorUSN 是当前 session 已处理到的 USN 上界 / 下一次处理起点。
+	//
+	// 在 PULLING 状态下，该字段复用为 PullEntityQueue[0] 对应实体类型内的拉取游标。
+	// 当前实体类型拉完后会重置为 CliSyncCursorUSNAtHandshake，全部实体类型拉完后会推进到
+	// SrvSyncCursorUSNAtHandshake
 	SyncCursorUSN int64 `redis:"sync_cursor_usn"`
+
+	// PullEntityQueue 是 PULLING 状态下剩余待拉取的实体类型队列，格式如 "1,2,4,6"。
+	// 该字段是 Redis session 内部临时字段，Pull 完成后会删除。
+	PullEntityQueue string `redis:"pull_entity_queue"`
 
 	SessionID string `redis:"session_id"`
 
@@ -71,6 +79,20 @@ type SessionStorer interface {
 
 	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
 	MarkPushFinished(ctx context.Context, userID int64, sessionID string) error
+
+	// ClaimPullBatch 校验 Pull session 和 batch，并返回当前 Pull 游标与剩余实体类型队列
+	// 如果校验失败则返回 (ClaimPullBatchResult, nil)，如果是内部错误则返回 (ClaimPullBatchResult{}, error)
+	ClaimPullBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPullBatchResult, error)
+
+	// AdvancePullCursor 在 Pull batch 处理完成后，更新 sync_cursor_usn
+	AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error
+
+	// MarkPullEntityFinished 在当前实体类型拉取完成后，
+	// 更新剩余实体类型队列，并重置 sync_cursor_usn 为 client_sync_cursor_usn_at_handshake
+	MarkPullEntityFinished(ctx context.Context, userID int64, sessionID, remainingPullEntityQueue string) error
+
+	// MarkPullFinished 在最后一个 Pull batch 处理完成后，将 session state 改为 AWAITING_PUSH_OR_FINISH
+	MarkPullFinished(ctx context.Context, userID int64, sessionID string) error
 
 	// FinishSync 在客户端调用 FinishSync 后，删除当前用户的 SyncSession，表示本次同步完成
 	// 会验证 sessionID 是否匹配以及 当前 state 可否 FinishSync，若不行则返回 connect.NewError 创建的错误

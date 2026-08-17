@@ -1,7 +1,6 @@
 -- KEYS[1] = sync:{userID}:sync_lock
 -- ARGV[1] = request_session_id
--- ARGV[2] = sync_cursor_usn
--- ARGV[3] = ttl seconds
+-- ARGV[2] = ttl seconds
 --
 -- return 1: 更新成功
 -- return 2: session 不存在或 session 数据不完整
@@ -10,10 +9,11 @@
 
 local STATE_AWAITING_PUSH_OR_FINISH = 3
 
-local sessionID = redis.call("HGET", KEYS[1], "session_id")
-local syncCursorUSN = tonumber(ARGV[2])
+local session = redis.call("HMGET", KEYS[1], "session_id", "server_sync_cursor_usn_at_handshake")
+local sessionID = session[1]
+local srvCursorAtHandshake = tonumber(session[2])
 
-if sessionID == false or syncCursorUSN == nil then
+if sessionID == false or srvCursorAtHandshake == nil then
   return 2
 end
 
@@ -24,10 +24,11 @@ end
 redis.call(
   "HSET",
   KEYS[1],
-  "sync_cursor_usn", syncCursorUSN,
+  "sync_cursor_usn", srvCursorAtHandshake,
   "state", STATE_AWAITING_PUSH_OR_FINISH,
   "expected_batch_seq", 1
 )
-redis.call("EXPIRE", KEYS[1], ARGV[3])
+redis.call("HDEL", KEYS[1], "pull_entity_queue")
+redis.call("EXPIRE", KEYS[1], ARGV[2])
 
 return 1

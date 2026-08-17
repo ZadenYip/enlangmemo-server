@@ -9,9 +9,13 @@ import (
 )
 
 type ClaimPullBatchResult struct {
-	LuaResult                      ClaimPullBatchLuaResult
-	SyncCursorUSN                  int64
-	ServerSyncCursorUSNAtHandshake int64
+	LuaResult                   ClaimPullBatchLuaResult
+	SyncCursorUSN               int64
+	SrvSyncCursorUSNAtHandshake int64
+
+	// 还没拉取完的实体 type 队列，例如：1,2,3,4,5,6,7 如果为空则是 ""
+	// 实体 type 范围具体见 sync_units.entity_type 里的 COMMENT
+	PullEntityQueue string
 }
 
 type ClaimPullBatchLuaResult int64
@@ -29,7 +33,7 @@ const (
 var claimPullBatchLua string
 var claimPullBatchScript = redis.NewScript(claimPullBatchLua)
 
-func (s *SessionStore) ClaimPullBatch(ctx context.Context, userID, sessionID string, curBatchSeq int32) (ClaimPullBatchResult, error) {
+func (s *SessionStore) ClaimPullBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPullBatchResult, error) {
 	rawResult, err := claimPullBatchScript.Run(
 		ctx,
 		s.rdb,
@@ -37,21 +41,42 @@ func (s *SessionStore) ClaimPullBatch(ctx context.Context, userID, sessionID str
 		sessionID,
 		curBatchSeq,
 		syncSessionTTLSecs,
-	).Int64Slice()
+	).Slice()
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to claim pull batch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "error", err)
 		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, err
 	}
 
-	if len(rawResult) != 3 {
+	if len(rawResult) != 4 {
 		s.logger.ErrorCtx(ctx, "invalid claim pull batch result", "result", rawResult)
 		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, fmt.Errorf("invalid claim pull batch result: %v", rawResult)
 	}
+	luaResult, ok := rawResult[0].(int64)
+	if !ok {
+		s.logger.ErrorCtx(ctx, "invalid claim pull batch lua result type", "result", rawResult)
+		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, fmt.Errorf("invalid claim pull batch lua result type: %T", rawResult[0])
+	}
+	syncCursorUSN, ok := rawResult[1].(int64)
+	if !ok {
+		s.logger.ErrorCtx(ctx, "invalid claim pull batch sync cursor usn type", "result", rawResult)
+		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, fmt.Errorf("invalid claim pull batch sync cursor usn type: %T", rawResult[1])
+	}
+	srvSyncCursorUSNAtHandshake, ok := rawResult[2].(int64)
+	if !ok {
+		s.logger.ErrorCtx(ctx, "invalid claim pull batch server cursor type", "result", rawResult)
+		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, fmt.Errorf("invalid claim pull batch server cursor type: %T", rawResult[2])
+	}
+	pullEntityQueue, ok := rawResult[3].(string)
+	if !ok {
+		s.logger.ErrorCtx(ctx, "invalid claim pull batch entity queue type", "result", rawResult)
+		return ClaimPullBatchResult{LuaResult: ClaimPullBatchLuaErr}, fmt.Errorf("invalid claim pull batch entity queue type: %T", rawResult[3])
+	}
 
 	result := ClaimPullBatchResult{
-		LuaResult:                      ClaimPullBatchLuaResult(rawResult[0]),
-		SyncCursorUSN:                  rawResult[1],
-		ServerSyncCursorUSNAtHandshake: rawResult[2],
+		LuaResult:                   ClaimPullBatchLuaResult(luaResult),
+		SyncCursorUSN:               syncCursorUSN,
+		SrvSyncCursorUSNAtHandshake: srvSyncCursorUSNAtHandshake,
+		PullEntityQueue:             pullEntityQueue,
 	}
 
 	switch result.LuaResult {

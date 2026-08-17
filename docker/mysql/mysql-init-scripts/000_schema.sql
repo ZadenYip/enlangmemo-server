@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS sync_units (
     updated_at BIGINT NOT NULL,
 
     PRIMARY KEY (user_id, entity_id),
-    -- 拉取同步单元时，按 user_id + usn 排序，保证拉取顺序正确
-    INDEX ix_sync_units_pull (user_id ASC, usn ASC),
+    -- 用来确定有哪些实体类型需要拉取数据的辅助索引
+    INDEX ix_sync_units_pull (user_id ASC, entity_type ASC, usn ASC),
     -- 用于运维清理非常早之前就删除的同步单元
     INDEX ix_sync_units_retention (op, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 同步单元索引表';

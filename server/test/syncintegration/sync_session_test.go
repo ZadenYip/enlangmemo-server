@@ -25,6 +25,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 		CliSyncCursorUSNAtHandshake: 3,
 		SrvSyncCursorUSNAtHandshake: 12,
 		DeviceID:                    "device-1",
+		PullEntityQueue:             "1,2",
 	}
 
 	result, err := store.CreateSession(ctx, session)
@@ -43,6 +44,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 		"client_sync_cursor_usn_at_handshake": strconv.FormatInt(session.CliSyncCursorUSNAtHandshake, 10),
 		"server_sync_cursor_usn_at_handshake": strconv.FormatInt(session.SrvSyncCursorUSNAtHandshake, 10),
 		"device_id":                           session.DeviceID,
+		"pull_entity_queue":                   session.PullEntityQueue,
 	}, got)
 
 	ttl, err := suite.Env.RDB.TTL(ctx, key).Result()

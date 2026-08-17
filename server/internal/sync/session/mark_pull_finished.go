@@ -28,11 +28,10 @@ func (s *SessionStore) MarkPullFinished(ctx context.Context, userID int64, sessi
 		s.rdb,
 		[]string{rdbSessionKey(userID)},
 		sessionID,
-		syncCursor,
-		int64(syncSessionTTLSecs),
+		syncSessionTTLSecs,
 	).Int64()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to run mark pull finished script", "userID", userID, "sessionID", sessionID, "syncCursor", syncCursor, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to run mark pull finished script", "userID", userID, "sessionID", sessionID, "error", err)
 		return err
 	}
 

@@ -15,8 +15,9 @@ import (
 )
 
 type fakeHandshakeStore struct {
-	colInfo CollectionInfoForHandshake
-	err     error
+	colInfo         CollectionInfoForHandshake
+	pullEntityQueue string
+	err             error
 }
 
 func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error) {
@@ -24,6 +25,13 @@ func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID 
 		return CollectionInfoForHandshake{}, s.err
 	}
 	return s.colInfo, nil
+}
+
+func (s *fakeHandshakeStore) GetPullEntityQueueForHandshake(ctx context.Context, userID int64, minUSNInclusive, maxUSNExclusive int64) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.pullEntityQueue, nil
 }
 
 type fakeSessionStore struct {
@@ -68,7 +76,27 @@ func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID int64, s
 	return args.Error(0)
 }
 
-func (s *fakeSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+func (s *fakeSessionStore) ClaimPullBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32) (ss.ClaimPullBatchResult, error) {
+	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
+	return args.Get(0).(ss.ClaimPullBatchResult), args.Error(1)
+}
+
+func (s *fakeSessionStore) AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error {
+	args := s.Called(ctx, userID, sessionID, newSyncCursorUSN)
+	return args.Error(0)
+}
+
+func (s *fakeSessionStore) MarkPullEntityFinished(ctx context.Context, userID int64, sessionID, remainingPullEntityQueue string) error {
+	args := s.Called(ctx, userID, sessionID, remainingPullEntityQueue)
+	return args.Error(0)
+}
+
+func (s *fakeSessionStore) MarkPullFinished(ctx context.Context, userID int64, sessionID string) error {
+	args := s.Called(ctx, userID, sessionID)
+	return args.Error(0)
+}
+
+func (s *fakeSessionStore) FinishSync(ctx context.Context, userID int64, sessionID string, finishTime int64) error {
 	args := s.Called(ctx, userID, sessionID, finishTime)
 	return args.Error(0)
 }
@@ -84,6 +112,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 		wantState       ss.SessionState
 		wantBatchSeq    int64
 		wantSyncCursor  int64
+		wantEntityQueue string
 		wantCreate      bool
 	}{
 		{
@@ -109,15 +138,16 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			wantCreate:      false,
 		},
 		{
-			name:           "need pull",
-			clientCursor:   8,
-			serverCursor:   10,
-			serverLastSync: 1_800_000_000_200,
-			wantStatus:     syncv1.HandshakeStatus_HANDSHAKE_STATUS_NEED_PULL,
-			wantState:      ss.SyncSessionStatePulling,
-			wantBatchSeq:   1,
-			wantSyncCursor: 8,
-			wantCreate:     true,
+			name:            "need pull",
+			clientCursor:    8,
+			serverCursor:    10,
+			serverLastSync:  1_800_000_000_200,
+			wantStatus:      syncv1.HandshakeStatus_HANDSHAKE_STATUS_NEED_PULL,
+			wantState:       ss.SyncSessionStatePulling,
+			wantBatchSeq:    1,
+			wantSyncCursor:  8,
+			wantEntityQueue: "1",
+			wantCreate:      true,
 		},
 		{
 			name:           "upload all",
@@ -135,14 +165,14 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", int64(10001))
-			sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
+			mockStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 			handler := &SyncHandler{
-				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
+				hskStore: &fakeHandshakeStore{pullEntityQueue: tt.wantEntityQueue, colInfo: CollectionInfoForHandshake{
 					CollectionID:  "collection-1",
 					SyncCursorUSN: tt.serverCursor,
 					LastSyncTime:  tt.serverLastSync,
 				}},
-				sessionStore: sessionStore,
+				sessionStore: mockStore,
 				logger:       logging.NewServerLog(),
 			}
 
@@ -166,21 +196,22 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 				wantCreateInt = 0
 			}
 
-			require.Equal(t, wantCreateInt, sessionStore.createCalls)
+			require.Equal(t, wantCreateInt, mockStore.createCalls)
 			if !tt.wantCreate {
 				require.Nil(t, resp.Msg.SessionId)
 				return
 			}
 			require.NotNil(t, resp.Msg.SessionId)
 			require.NotEmpty(t, *resp.Msg.SessionId)
-			require.Equal(t, int64(10001), sessionStore.createdSession.UserID)
-			require.Equal(t, "device-1", sessionStore.createdSession.DeviceID)
-			require.Equal(t, tt.wantState, sessionStore.createdSession.State)
-			require.Equal(t, tt.wantBatchSeq, sessionStore.createdSession.ExpectedBatchSeq)
-			require.Equal(t, tt.wantSyncCursor, sessionStore.createdSession.SyncCursorUSN)
-			require.Equal(t, tt.clientCursor, sessionStore.createdSession.CliSyncCursorUSNAtHandshake)
-			require.Equal(t, tt.serverCursor, sessionStore.createdSession.SrvSyncCursorUSNAtHandshake)
-			require.Equal(t, *resp.Msg.SessionId, sessionStore.createdSession.SessionID)
+			require.Equal(t, int64(10001), mockStore.createdSession.UserID)
+			require.Equal(t, "device-1", mockStore.createdSession.DeviceID)
+			require.Equal(t, tt.wantState, mockStore.createdSession.State)
+			require.Equal(t, tt.wantBatchSeq, mockStore.createdSession.ExpectedBatchSeq)
+			require.Equal(t, tt.wantSyncCursor, mockStore.createdSession.SyncCursorUSN)
+			require.Equal(t, tt.wantEntityQueue, mockStore.createdSession.PullEntityQueue)
+			require.Equal(t, tt.clientCursor, mockStore.createdSession.CliSyncCursorUSNAtHandshake)
+			require.Equal(t, tt.serverCursor, mockStore.createdSession.SrvSyncCursorUSNAtHandshake)
+			require.Equal(t, *resp.Msg.SessionId, mockStore.createdSession.SessionID)
 		})
 	}
 }

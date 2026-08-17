@@ -135,6 +135,12 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID int64, colI
 		hskSession.State = ss.SyncSessionStatePulling
 		hskSession.ExpectedBatchSeq = 1
 		hskSession.SyncCursorUSN = req.ClientSyncCursorUsn
+		entityQueue, err := h.hskStore.GetPullEntityQueueForHandshake(ctx, userID, req.ClientSyncCursorUsn, colInfo.SyncCursorUSN)
+		if err != nil {
+			h.logger.ErrorCtx(ctx, "failed to get pull entity queue for handshake", "userID", userID, "error", err)
+			return nil, connect.NewError(connect.CodeInternal, nil)
+		}
+		hskSession.PullEntityQueue = entityQueue
 
 	// 需要上传客户端所有数据
 	case req.ClientSyncCursorUsn > colInfo.SyncCursorUSN:
