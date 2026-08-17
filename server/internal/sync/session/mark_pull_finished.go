@@ -22,7 +22,7 @@ const (
 var markPullFinishedLua string
 var markPullFinishedScript = redis.NewScript(markPullFinishedLua)
 
-func (s *SessionStore) MarkPullFinished(ctx context.Context, userID, sessionID string, syncCursor int64) error {
+func (s *SessionStore) MarkPullFinished(ctx context.Context, userID int64, sessionID string) error {
 	result, err := markPullFinishedScript.Run(
 		ctx,
 		s.rdb,

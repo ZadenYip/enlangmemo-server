@@ -1,7 +1,6 @@
 package syncintegration
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -48,7 +47,7 @@ type syncTestCollectionRow struct {
 }
 
 // loginID 长度不能超过 16 字符
-func createSyncTestUser(t *testing.T, loginID string) string {
+func createSyncTestUser(t *testing.T, loginID string) int64 {
 	t.Helper()
 	result, err := suite.Env.DB.ExecContext(
 		t.Context(),
@@ -61,10 +60,10 @@ func createSyncTestUser(t *testing.T, loginID string) string {
 
 	id, err := result.LastInsertId()
 	require.NoError(t, err)
-	return strconv.FormatInt(id, 10)
+	return id
 }
 
-func insertSyncTestCollection(t *testing.T, userID string, row syncTestCollectionRow) string {
+func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollectionRow) string {
 	t.Helper()
 	collectionUUID, err := uuid.NewV7()
 	require.NoError(t, err)

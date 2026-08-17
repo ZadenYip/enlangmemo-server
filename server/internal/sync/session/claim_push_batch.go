@@ -28,7 +28,7 @@ const (
 var claimPushBatchLua string
 var claimPushBatchScript = redis.NewScript(claimPushBatchLua)
 
-func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error) {
+func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error) {
 	rawResult, err := claimPushBatchScript.Run(
 		ctx,
 		s.rdb,

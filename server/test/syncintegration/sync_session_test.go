@@ -17,7 +17,7 @@ func TestSessionStoreCreateSession(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "session-user-1",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStatePulling,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -31,11 +31,11 @@ func TestSessionStoreCreateSession(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ss.CreateSessionCreated, result)
 
-	key := "sync:" + session.UserID + ":sync_lock"
+	key := syncSessionTestKey(session.UserID)
 	got, err := suite.Env.RDB.HGetAll(ctx, key).Result()
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{
-		"user_id":                             session.UserID,
+		"user_id":                             strconv.FormatInt(session.UserID, 10),
 		"state":                               strconv.FormatInt(int64(session.State), 10),
 		"expected_batch_seq":                  strconv.FormatInt(session.ExpectedBatchSeq, 10),
 		"sync_cursor_usn":                     strconv.FormatInt(session.SyncCursorUSN, 10),
@@ -62,7 +62,7 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "session-user-1",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -76,7 +76,7 @@ func TestSessionStoreClaimPushBatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ss.CreateSessionCreated, createResult)
 
-	key := "sync:" + session.UserID + ":sync_lock"
+	key := syncSessionTestKey(session.UserID)
 	claimResult, err := store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
 	require.Equal(t, ss.ClaimPushBatchLuaOK, claimResult.LuaResult)
@@ -119,7 +119,7 @@ func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "session-user-1",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStateAwaitingPushOrFinish,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -134,7 +134,7 @@ func TestSessionStoreClaimPushBatchFromAwaitingPushOrFinish(t *testing.T) {
 	require.Equal(t, ss.CreateSessionCreated, createResult)
 
 	// 测试 AWAITING_PUSH_OR_FINISH 在 ClaimPushBatch 后能否正确切换到 PUSHING 状态
-	key := "sync:" + session.UserID + ":sync_lock"
+	key := syncSessionTestKey(session.UserID)
 	claimResult, err := store.ClaimPushBatch(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
 	require.Equal(t, ss.ClaimPushBatchLuaOK, claimResult.LuaResult)
@@ -151,7 +151,7 @@ func TestSessionStoreMarkPushFinished(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "session-user-1",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -165,7 +165,7 @@ func TestSessionStoreMarkPushFinished(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ss.CreateSessionCreated, createResult)
 
-	key := "sync:" + session.UserID + ":sync_lock"
+	key := syncSessionTestKey(session.UserID)
 	err = store.MarkPushFinished(ctx, session.UserID, session.SessionID)
 	require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func TestSessionStoreFinishSyncSuccessReleasesSession(t *testing.T) {
 	resetEnv(t)
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-	userID := "10001"
+	userID := int64(10001)
 	finishTime := int64(1_800_000_000_000)
 	session := ss.SyncSession{
 		UserID:                      userID,
@@ -204,7 +204,7 @@ func TestSessionStoreFinishSyncSuccessReleasesSession(t *testing.T) {
 	err = store.FinishSync(ctx, userID, session.SessionID, finishTime)
 	require.NoError(t, err)
 
-	exists, err := suite.Env.RDB.Exists(ctx, "sync:"+userID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(ctx, syncSessionTestKey(userID)).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 
@@ -220,7 +220,7 @@ func TestSessionStoreFinishSyncSessionNotFound(t *testing.T) {
 	resetEnv(t)
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 
-	err := store.FinishSync(t.Context(), "10001", "session-id-1", 1_800_000_000_000)
+	err := store.FinishSync(t.Context(), 10001, "session-id-1", 1_800_000_000_000)
 
 	require.Error(t, err)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
@@ -233,7 +233,7 @@ func TestSessionStoreFinishSyncSessionIDMismatch(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "10001",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStateAwaitingFinish,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -251,7 +251,7 @@ func TestSessionStoreFinishSyncSessionIDMismatch(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
-	exists, err := suite.Env.RDB.Exists(ctx, "sync:"+session.UserID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(ctx, syncSessionTestKey(session.UserID)).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }
@@ -263,7 +263,7 @@ func TestSessionStoreFinishSyncStateMismatch(t *testing.T) {
 	ctx := t.Context()
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	session := ss.SyncSession{
-		UserID:                      "10001",
+		UserID:                      10001,
 		State:                       ss.SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,
@@ -281,7 +281,7 @@ func TestSessionStoreFinishSyncStateMismatch(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
-	exists, err := suite.Env.RDB.Exists(ctx, "sync:"+session.UserID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(ctx, syncSessionTestKey(session.UserID)).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }
@@ -300,7 +300,7 @@ func TestSessionStoreFinishSyncAllowedStates(t *testing.T) {
 			resetEnv(t)
 			ctx := t.Context()
 			store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
-			userID := "10001"
+			userID := int64(10001)
 			session := ss.SyncSession{
 				UserID:                      userID,
 				State:                       tt.state,
@@ -323,7 +323,7 @@ func TestSessionStoreFinishSyncAllowedStates(t *testing.T) {
 	}
 }
 
-func insertFinishTestCol(t *testing.T, userID string, lastSyncTime int64) {
+func insertFinishTestCol(t *testing.T, userID int64, lastSyncTime int64) {
 	t.Helper()
 	collectionID, err := uuid.NewV7()
 	require.NoError(t, err)
@@ -346,4 +346,8 @@ func insertFinishTestCol(t *testing.T, userID string, lastSyncTime int64) {
 		0,
 	)
 	require.NoError(t, err)
+}
+
+func syncSessionTestKey(userID int64) string {
+	return "sync:" + strconv.FormatInt(userID, 10) + ":sync_lock"
 }

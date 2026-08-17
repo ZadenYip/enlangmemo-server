@@ -19,7 +19,7 @@ type fakeHandshakeStore struct {
 	err     error
 }
 
-func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
+func (s *fakeHandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error) {
 	if s.err != nil {
 		return CollectionInfoForHandshake{}, s.err
 	}
@@ -47,7 +47,7 @@ func newFakeSessionStore(t *testing.T, result ss.CreateSessionResult) *fakeSessi
 	return store
 }
 
-func (s *fakeSessionStore) GetSession(ctx context.Context, userID string) (ss.SyncSession, error) {
+func (s *fakeSessionStore) GetSession(ctx context.Context, userID int64) (ss.SyncSession, error) {
 	args := s.Called(ctx, userID)
 	return args.Get(0).(ss.SyncSession), args.Error(1)
 }
@@ -58,12 +58,12 @@ func (s *fakeSessionStore) CreateSession(ctx context.Context, session ss.SyncSes
 	return s.result, s.err
 }
 
-func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
+func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
 	args := s.Called(ctx, userID, sessionID, currentBatchSeq)
 	return args.Get(0).(ss.ClaimPushBatchResult), args.Error(1)
 }
 
-func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
+func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
 	args := s.Called(ctx, userID, sessionID)
 	return args.Error(0)
 }
@@ -134,7 +134,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), "userID", "user-1")
+			ctx := context.WithValue(context.Background(), "userID", int64(10001))
 			sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 			handler := &SyncHandler{
 				hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
@@ -173,7 +173,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			}
 			require.NotNil(t, resp.Msg.SessionId)
 			require.NotEmpty(t, *resp.Msg.SessionId)
-			require.Equal(t, "user-1", sessionStore.createdSession.UserID)
+			require.Equal(t, int64(10001), sessionStore.createdSession.UserID)
 			require.Equal(t, "device-1", sessionStore.createdSession.DeviceID)
 			require.Equal(t, tt.wantState, sessionStore.createdSession.State)
 			require.Equal(t, tt.wantBatchSeq, sessionStore.createdSession.ExpectedBatchSeq)
@@ -187,7 +187,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 
 // TestHandshakeTimeSkewTooLargeDoesNotCreateSession 测试当客户端和服务器时间差超过 5 分钟时，握手返回 TIME_SKEW_TOO_LARGE
 func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "userID", "user-1")
+	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
@@ -215,7 +215,7 @@ func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 
 func TestHandshakeStoreErrors(t *testing.T) {
 	// 测试 collection store 返回错误时，握手返回 INTERNAL 错误
-	ctx := context.WithValue(context.Background(), "userID", "user-1")
+	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	handler := &SyncHandler{
 		hskStore:     &fakeHandshakeStore{err: errors.New("handshake store error")},
 		sessionStore: newFakeSessionStore(t, ss.CreateSessionCreated),
@@ -235,7 +235,7 @@ func TestHandshakeStoreErrors(t *testing.T) {
 // TestHandshakeSessionAlreadyExists 测试已经有 session 时，握手返回 LOCKED_BY_OTHER_CLIENT 状态
 func TestHandshakeSessionAlreadyExists(t *testing.T) {
 	// 测试 session store 返回已经存在会话时，握手返回 LOCKED_BY_OTHER_CLIENT 状态
-	ctx := context.WithValue(context.Background(), "userID", "user-1")
+	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "collection-1",
@@ -258,7 +258,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 }
 
 func TestHandshakeCollectionIDMismatch(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "userID", "user-1")
+	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  "server-collection",

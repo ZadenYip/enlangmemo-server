@@ -20,12 +20,12 @@ func TestGetCollectionInfoForHandshakeReturnsUnderlyingQueryError(t *testing.T) 
 	}()
 
 	mock.ExpectQuery("SELECT id, sqlite_schema_version, last_sync_time, sync_cursor_usn, is_deleted").
-		WithArgs("10000").
+		WithArgs(int64(10000)).
 		WillReturnError(wantErr)
 
 	store := NewHandshakeStore(db, logging.NewServerLog())
 
-	info, err := store.GetColInfoForHandshake(t.Context(), "10000")
+	info, err := store.GetColInfoForHandshake(t.Context(), 10000)
 
 	require.Empty(t, info)
 	require.ErrorIs(t, err, wantErr)
@@ -42,7 +42,7 @@ func TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatab
 	}()
 
 	mock.ExpectQuery("SELECT id, sqlite_schema_version, last_sync_time, sync_cursor_usn, is_deleted").
-		WithArgs("10000").
+		WithArgs(int64(10000)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id",
 			"sqlite_schema_version",
@@ -53,7 +53,7 @@ func TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatab
 
 	store := NewHandshakeStore(db, logging.NewServerLog())
 
-	info, err := store.GetColInfoForHandshake(t.Context(), "10000")
+	info, err := store.GetColInfoForHandshake(t.Context(), 10000)
 
 	require.Empty(t, info)
 	require.Error(t, err)

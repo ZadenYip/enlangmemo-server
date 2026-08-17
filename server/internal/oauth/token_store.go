@@ -30,7 +30,8 @@ var revokeAccessTokenLua string
 
 var revokeAccessTokenScript = redis.NewScript(revokeAccessTokenLua)
 
-func (s *OAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
+func (s *OAStore) GenAccessToken(ctx context.Context, clientID string, userID int64) (string, error) {
+
 	const maxAttempts = 3
 	for range maxAttempts {
 		accessToken, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
@@ -64,7 +65,7 @@ func (s *OAStore) GenAccessToken(ctx context.Context, clientID, userID string) (
 }
 
 type TokenInfo struct {
-	UserID   string `json:"user_id"`
+	UserID   int64  `json:"user_id,string"`
 	ClientID string `json:"client_id"`
 }
 
@@ -82,10 +83,10 @@ func (s *OAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken str
 	return parseTokenInfo(tokenInfoJSON)
 }
 
-func (s *OAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
+func (s *OAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error) {
 	tokenInfo, err := s.GetTokenInfoByAccessToken(ctx, accessToken)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	return tokenInfo.UserID, nil
 }

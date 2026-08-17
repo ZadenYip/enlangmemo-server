@@ -22,7 +22,7 @@ type AuthorizationInfo struct {
 	codeChallenge       string
 	codeChallengeMethod string
 
-	userID string
+	userID int64
 }
 
 type authorizeRequest struct {
@@ -87,25 +87,25 @@ func (h *OAuthHandler) infoFromRequest(r *http.Request) AuthorizationInfo {
 	}
 }
 
-// checkUserLoggedIn 检查用户是否已登录，如果已登录则返回 token，否则返回空字符串
-func (h *OAuthHandler) checkUserLoggedIn(r *http.Request) (string, bool) {
+// checkUserLoggedIn 检查用户是否已登录，如果已登录则返回 userID。
+func (h *OAuthHandler) checkUserLoggedIn(r *http.Request) (int64, bool) {
 	ssoCookie, err := r.Cookie(sso.SSOCookieName)
 	switch {
 	case errors.Is(err, http.ErrNoCookie):
-		return "", false
+		return 0, false
 	case err != nil:
-		return "", false
+		return 0, false
 	}
-	checked, err := h.ssoStore.GetUserID(r.Context(), ssoCookie.Value)
+	userID, err := h.ssoStore.GetUserID(r.Context(), ssoCookie.Value)
 	switch {
 	case errors.Is(err, redis.Nil):
-		return "", false
+		return 0, false
 	case err != nil:
 		h.log.ErrorCtx(r.Context(), "failed to get userID from SSO store", "err", err)
-		return "", false
+		return 0, false
 	}
 
-	return checked, true
+	return userID, true
 }
 
 // redirectToLogin 重定向到登录页面，并携带原始请求的授权信息

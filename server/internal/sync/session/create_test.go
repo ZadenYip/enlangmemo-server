@@ -16,7 +16,7 @@ func TestCreateSessionRedisError(t *testing.T) {
 	})
 	store := NewSessionStore(nil, rdb, logging.NewServerLog())
 	session := SyncSession{
-		UserID:                      "10001",
+		UserID:                      10001,
 		State:                       SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,

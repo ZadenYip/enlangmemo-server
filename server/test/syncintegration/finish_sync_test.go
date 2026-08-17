@@ -48,7 +48,7 @@ func TestFinishSyncSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, finishResp.Msg.ServerFinishedAt)
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), "sync:"+userID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), syncSessionTestKey(userID)).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 
@@ -93,7 +93,7 @@ func TestFinishSyncSessionIDMismatch(t *testing.T) {
 	require.Nil(t, resp)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), "sync:"+userID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), syncSessionTestKey(userID)).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }

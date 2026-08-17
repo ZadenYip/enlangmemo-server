@@ -15,7 +15,7 @@ type HandshakeStorer interface {
 	// 如果集合不存在，error 为 nil, CollectionInfoForHandshake.SyncCursorUSN 为 1
 	//
 	// error 不会在集合不存在的时候返回 sql.ErrNoRows，而是返回 nil
-	GetColInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error)
+	GetColInfoForHandshake(ctx context.Context, userID uint64) (CollectionInfoForHandshake, error)
 }
 
 type HandshakeStore struct {
@@ -44,7 +44,7 @@ type CollectionInfoForHandshake struct {
 	IsDeleted bool
 }
 
-func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID string) (CollectionInfoForHandshake, error) {
+func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error) {
 	var info CollectionInfoForHandshake
 	var colID []byte
 	const sqlStat = `

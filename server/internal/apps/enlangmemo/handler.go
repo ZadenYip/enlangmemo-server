@@ -14,11 +14,11 @@ import (
 )
 
 type AccessTokenStore interface {
-	GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error)
+	GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error)
 }
 
 type UserProfileStore interface {
-	GetUserProfile(ctx context.Context, userID string) (auth.UserProfile, error)
+	GetUserProfile(ctx context.Context, userID int64) (auth.UserProfile, error)
 }
 
 type Handler struct {

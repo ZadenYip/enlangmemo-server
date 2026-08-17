@@ -22,7 +22,7 @@ const (
 var advPullCursorLua string
 var advPullCursorScript = redis.NewScript(advPullCursorLua)
 
-func (s *SessionStore) AdvancePullCursor(ctx context.Context, userID, sessionID string, newSyncCursorUSN int64) error {
+func (s *SessionStore) AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error {
 	result, err := advPullCursorScript.Run(
 		ctx,
 		s.rdb,

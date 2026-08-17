@@ -17,7 +17,7 @@ func TestFinishSyncRedisError(t *testing.T) {
 	})
 	store := NewSessionStore(nil, rdb, logging.NewServerLog())
 
-	err := store.FinishSync(t.Context(), "10001", "session-id-1", 1_800_000_000_000)
+	err := store.FinishSync(t.Context(), 10001, "session-id-1", 1_800_000_000_000)
 
 	require.Error(t, err)
 	require.Equal(t, connect.CodeInternal, connect.CodeOf(err))
@@ -57,7 +57,7 @@ func TestHandleReleaseSessionResult(t *testing.T) {
 	store := &SessionStore{logger: logging.NewServerLog()}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := store.handleReleaseResult(t.Context(), "10001", "session-id-1", tt.result)
+			err := store.handleReleaseResult(t.Context(), 10001, "session-id-1", tt.result)
 
 			if tt.wantErr {
 				require.Error(t, err)

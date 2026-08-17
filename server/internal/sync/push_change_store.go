@@ -13,7 +13,7 @@ import (
 var errInvalidPushChange = errors.New("invalid push change")
 
 type PushChangeStorer interface {
-	ApplyPushChanges(ctx context.Context, userID string, assignedUSN int64, changes []*syncv1.SyncChange) error
+	ApplyPushChanges(ctx context.Context, userID int64, assignedUSN int64, changes []*syncv1.SyncChange) error
 }
 
 type PushChangeStore struct {
@@ -28,7 +28,7 @@ func NewPushChangeStore(db *sql.DB, logger logging.Logger) *PushChangeStore {
 	}
 }
 
-func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID string, assignedUSN int64, changes []*syncv1.SyncChange) error {
+func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID int64, assignedUSN int64, changes []*syncv1.SyncChange) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to begin transaction in ApplyPushChanges", "error", err)
@@ -60,7 +60,7 @@ func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID string, a
 }
 
 type applyChangeInfo struct {
-	userID      string
+	userID      int64
 	assignedUSN int64
 }
 

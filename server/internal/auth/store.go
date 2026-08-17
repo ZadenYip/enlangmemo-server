@@ -6,8 +6,8 @@ import (
 )
 
 type UserStore interface {
-	CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error)
-	GetPasswordHash(ctx context.Context, loginID string) (string, string, error)
+	CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (int64, error)
+	GetPasswordHash(ctx context.Context, loginID string) (int64, string, error)
 }
 
 type UserProfile struct {
@@ -17,7 +17,7 @@ type UserProfile struct {
 }
 
 type SSOStore interface {
-	Create(ctx context.Context, userID string) (string, error)
+	Create(ctx context.Context, userID int64) (string, error)
 	Logout(ctx context.Context, sessionID string) (int64, error)
 }
 

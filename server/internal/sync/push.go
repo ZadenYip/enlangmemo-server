@@ -12,10 +12,10 @@ import (
 func (h *SyncHandler) Push(ctx context.Context,
 	req *connect.Request[syncv1.PushRequest],
 ) (*connect.Response[syncv1.PushResponse], error) {
-	userID := ctx.Value("userID").(string)
-	if userID == "" {
+	userID, err := userIDFromContext(ctx)
+	if err != nil {
 		// 不应该出现这个状况，因为 AuthInterceptor 已经放入 userID 进 context 了
-		h.logger.ErrorCtx(ctx, "userID is empty after AuthInterceptor in Push")
+		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Push", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 	result, err := h.claimPushBatch(ctx, req.Msg, userID)
@@ -49,7 +49,7 @@ func (h *SyncHandler) Push(ctx context.Context,
 }
 
 // claimPushBatch 会校验 Push session 状态和 batch seq，并领取当前 batch 的 assigned_usn。
-func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushRequest, userID string) (ss.ClaimPushBatchResult, error) {
+func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushRequest, userID int64) (ss.ClaimPushBatchResult, error) {
 	result, err := h.sessionStore.ClaimPushBatch(
 		ctx,
 		userID,

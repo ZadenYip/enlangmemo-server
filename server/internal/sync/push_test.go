@@ -23,18 +23,18 @@ func (s *fakePushSessionStore) CreateSession(ctx context.Context, session ss.Syn
 	panic("CreateSession should not be called")
 }
 
-func (s *fakePushSessionStore) GetSession(ctx context.Context, userID string) (ss.SyncSession, error) {
+func (s *fakePushSessionStore) GetSession(ctx context.Context, userID int64) (ss.SyncSession, error) {
 	panic("GetSession should not be called")
 }
 
-func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
+func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
 	if !s.claimResultSet && s.claimErr == nil {
 		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
 	}
 	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedUSN: s.assignedUSN}, s.claimErr
 }
 
-func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
+func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
 	panic("MarkPushFinished should not be called")
 }
 
@@ -107,7 +107,7 @@ func TestClaimPushBatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			userID := "user-1"
+			userID := int64(10001)
 			ctx := context.WithValue(context.Background(), "userID", userID)
 			handler := &SyncHandler{
 				sessionStore: &fakePushSessionStore{claimResult: tt.claimResult, claimResultSet: tt.claimResult != 0, claimErr: tt.claimErr, assignedUSN: wantAssignedUSN},

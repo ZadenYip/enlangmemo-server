@@ -37,12 +37,12 @@ func TestGetUserProfileReturnsProfile(t *testing.T) {
 		_ = db.Close()
 	}()
 	mock.ExpectQuery("SELECT login_id, nickname FROM users").
-		WithArgs(uint64(10000)).
+		WithArgs(int64(10000)).
 		WillReturnRows(sqlmock.NewRows([]string{"login_id", "nickname"}).AddRow("alice", "Alice"))
 
 	store := NewMySQLUserStore(db)
 
-	profile, err := store.GetUserProfile(t.Context(), "10000")
+	profile, err := store.GetUserProfile(t.Context(), 10000)
 
 	require.NoError(t, err)
 	require.Equal(t, UserProfile{
@@ -63,7 +63,7 @@ func TestGetUserProfileRejectsInvalidUserID(t *testing.T) {
 
 	store := NewMySQLUserStore(db)
 
-	profile, err := store.GetUserProfile(t.Context(), "not-a-number")
+	profile, err := store.GetUserProfile(t.Context(), 0)
 
 	require.Empty(t, profile)
 	require.ErrorIs(t, err, ErrInvalidUserID)

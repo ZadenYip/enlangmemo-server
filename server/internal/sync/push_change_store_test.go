@@ -21,7 +21,7 @@ func TestApplyPushChangesBeginTxError(t *testing.T) {
 	mock.ExpectBegin().WillReturnError(wantErr)
 	store := NewPushChangeStore(db, logging.NewServerLog())
 
-	err = store.ApplyPushChanges(t.Context(), "10001", 12, nil)
+	err = store.ApplyPushChanges(t.Context(), 10001, 12, nil)
 
 	require.ErrorIs(t, err, wantErr)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -37,14 +37,14 @@ func TestUpdateColSyncCursorExecError(t *testing.T) {
 	wantErr := errors.New("update failed")
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
-		WithArgs(int64(13), "10001").
+		WithArgs(13, 10001).
 		WillReturnError(wantErr)
 	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	defer tx.Rollback()
 	store := NewPushChangeStore(db, logging.NewServerLog())
 
-	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: "10001", assignedUSN: 12})
+	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: 10001, assignedUSN: 12})
 
 	require.ErrorIs(t, err, wantErr)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -60,14 +60,14 @@ func TestUpdateColSyncCursorRowsAffectedError(t *testing.T) {
 	wantErr := errors.New("rows affected failed")
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
-		WithArgs(int64(13), "10001").
+		WithArgs(13, 10001).
 		WillReturnResult(sqlmock.NewErrorResult(wantErr))
 	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	defer tx.Rollback()
 	store := NewPushChangeStore(db, logging.NewServerLog())
 
-	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: "10001", assignedUSN: 12})
+	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: 10001, assignedUSN: 12})
 
 	require.ErrorIs(t, err, wantErr)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -82,14 +82,14 @@ func TestUpdateColSyncCursorNoRowsAffected(t *testing.T) {
 	})
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
-		WithArgs(int64(13), "10001").
+		WithArgs(13, 10001).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	defer tx.Rollback()
 	store := NewPushChangeStore(db, logging.NewServerLog())
 
-	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: "10001", assignedUSN: 12})
+	err = store.updateColSyncCursor(t.Context(), tx, applyChangeInfo{userID: 10001, assignedUSN: 12})
 
 	require.EqualError(t, err, "collection sync cursor update affected no rows")
 	require.NoError(t, mock.ExpectationsWereMet())

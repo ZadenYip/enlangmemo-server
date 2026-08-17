@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"strconv"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
@@ -15,7 +16,7 @@ const (
 )
 
 type SyncSession struct {
-	UserID string `redis:"user_id"`
+	UserID int64 `redis:"user_id"`
 
 	// State 表示当前 session 所处的同步阶段
 	State SessionState `redis:"state"`
@@ -53,7 +54,7 @@ const (
 type SessionStorer interface {
 	// GetSession 获取当前用户 SyncSession 的完整快照。
 	// 如果 session 不存在或字段不完整，返回 error。
-	GetSession(ctx context.Context, userID string) (SyncSession, error)
+	GetSession(ctx context.Context, userID int64) (SyncSession, error)
 	// CreateSession 尝试创建一个新的 SyncSession
 	//
 	// CreateSessionResult 返回值含义如下
@@ -66,14 +67,14 @@ type SessionStorer interface {
 	CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error)
 
 	// ClaimPushBatch 校验 Push session 和 batch，并分配 assigned_usn（可用的下个 sync_cursor_usn）
-	ClaimPushBatch(ctx context.Context, userID, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error)
+	ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error)
 
 	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
-	MarkPushFinished(ctx context.Context, userID, sessionID string) error
+	MarkPushFinished(ctx context.Context, userID int64, sessionID string) error
 
 	// FinishSync 在客户端调用 FinishSync 后，删除当前用户的 SyncSession，表示本次同步完成
 	// 会验证 sessionID 是否匹配以及 当前 state 可否 FinishSync，若不行则返回 connect.NewError 创建的错误
-	FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error
+	FinishSync(ctx context.Context, userID int64, sessionID string, finishTime int64) error
 }
 
 type SessionStore struct {
@@ -90,6 +91,6 @@ func NewSessionStore(db *sql.DB, rdb *redis.Client, logger logging.Logger) *Sess
 	}
 }
 
-func rdbSessionKey(userID string) string {
-	return "sync:" + userID + ":sync_lock"
+func rdbSessionKey(userID int64) string {
+	return "sync:" + strconv.FormatInt(userID, 10) + ":sync_lock"
 }

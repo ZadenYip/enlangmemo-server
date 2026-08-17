@@ -15,10 +15,10 @@ func (h *SyncHandler) Handshake(
 	ctx context.Context,
 	r *connect.Request[syncv1.HandshakeRequest],
 ) (*connect.Response[syncv1.HandshakeResponse], error) {
-	userID := ctx.Value("userID").(string)
-	if userID == "" {
+	userID, err := userIDFromContext(ctx)
+	if err != nil {
 		// 不应该出现这个状况，因为 AuthInterceptor 已经放入 userID 进 context 了
-		h.logger.ErrorCtx(ctx, "userID is empty after AuthInterceptor in Handshake")
+		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Handshake", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
@@ -60,7 +60,7 @@ func (h *SyncHandler) Handshake(
 // 这里的 SessionID 是新生成的
 func (h *SyncHandler) hskSession(ctx context.Context,
 	req *syncv1.HandshakeRequest,
-	userID string,
+	userID int64,
 ) (ss.SyncSession, error) {
 	sessionID, err := srvSession.NewID(16)
 	if err != nil {
@@ -80,7 +80,7 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 }
 
 // 根据客户端集合状态和服务器集合状态，判断握手的状态
-func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, colInfo CollectionInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
+func (h *SyncHandler) determineHandshake(ctx context.Context, userID int64, colInfo CollectionInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
 
 	var resp = &syncv1.HandshakeResponse{
 		SessionId:           nil,

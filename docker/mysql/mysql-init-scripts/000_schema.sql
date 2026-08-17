@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 /* EnLangMemo 同步表 */
 
 CREATE TABLE IF NOT EXISTS sync_units (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     usn BIGINT NOT NULL,
 
     entity_id BINARY(16) NOT NULL,

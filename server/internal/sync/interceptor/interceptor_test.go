@@ -12,7 +12,7 @@ import (
 )
 
 type fakeOAStoreForAuthInterceptor struct {
-	userID   string
+	userID   int64
 	err      error
 	gotToken string
 	getCalls int
@@ -30,12 +30,12 @@ func (s *fakeOAStoreForAuthInterceptor) ConsumeCodeSession(ctx context.Context, 
 	return oauth.OAuthSession{}, nil
 }
 
-func (s *fakeOAStoreForAuthInterceptor) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
+func (s *fakeOAStoreForAuthInterceptor) GenAccessToken(ctx context.Context, clientID string, userID int64) (string, error) {
 	return "", nil
 }
 
 // GetUserIDByAccessToken 用于模拟获取用户 ID 的方法，会保存从 header 获取的 token
-func (s *fakeOAStoreForAuthInterceptor) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
+func (s *fakeOAStoreForAuthInterceptor) GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error) {
 	s.getCalls++
 	s.gotToken = accessToken
 	return s.userID, s.err
@@ -50,7 +50,7 @@ func (s *fakeOAStoreForAuthInterceptor) RevokeAccessToken(ctx context.Context, a
 }
 
 func TestAuthInterceptorSuccess(t *testing.T) {
-	store := &fakeOAStoreForAuthInterceptor{userID: "user-1"}
+	store := &fakeOAStoreForAuthInterceptor{userID: 10001}
 	req := connect.NewRequest(&syncv1.HandshakeRequest{})
 	req.Header().Set("Authorization", "Bearer access-token")
 
@@ -58,7 +58,7 @@ func TestAuthInterceptorSuccess(t *testing.T) {
 	next := func(ctx context.Context, r connect.AnyRequest) (connect.AnyResponse, error) {
 		nextCalled = true
 		// 验证 userID 被中间件是否加进了 context 中
-		require.Equal(t, "user-1", ctx.Value("userID"))
+		require.Equal(t, 10001, ctx.Value("userID"))
 		require.Same(t, req, r)
 		return connect.NewResponse(&syncv1.HandshakeResponse{}), nil
 	}
@@ -75,7 +75,7 @@ func TestAuthInterceptorSuccess(t *testing.T) {
 }
 
 func TestAuthInterceptorRejectsMissingToken(t *testing.T) {
-	store := &fakeOAStoreForAuthInterceptor{userID: "user-1"}
+	store := &fakeOAStoreForAuthInterceptor{userID: 10001}
 	req := connect.NewRequest(&syncv1.HandshakeRequest{})
 
 	resp, err := NewAuthInterceptor(store)(mustNotCallNext(t))(context.Background(), req)

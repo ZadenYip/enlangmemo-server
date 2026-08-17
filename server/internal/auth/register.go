@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
@@ -68,5 +69,5 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.InfoCtx(r.Context(), "user registered successfully", "userId", userID, "loginId", reg.LoginID, "nickname", reg.Nickname)
-	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: userID}, h.log.Error())
+	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: strconv.FormatInt(userID, 10)}, h.log.Error())
 }

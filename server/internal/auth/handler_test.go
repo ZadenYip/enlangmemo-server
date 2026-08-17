@@ -19,14 +19,14 @@ type mockUserStore struct {
 	mock.Mock
 }
 
-func (store *mockUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (string, error) {
+func (store *mockUserStore) CreateUser(ctx context.Context, loginID string, nickname string, passwordHash string) (int64, error) {
 	args := store.Called(ctx, loginID, nickname, passwordHash)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
 
-func (store *mockUserStore) GetPasswordHash(ctx context.Context, loginID string) (string, string, error) {
+func (store *mockUserStore) GetPasswordHash(ctx context.Context, loginID string) (int64, string, error) {
 	args := store.Called(ctx, loginID)
-	return args.String(0), args.String(1), args.Error(2)
+	return args.Get(0).(int64), args.String(1), args.Error(2)
 }
 
 func passwordHashMatcher(password string) any {
@@ -58,7 +58,7 @@ func TestRegisterNameTooLong(t *testing.T) {
 func TestRegisterUserAlreadyExists(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
-		Return("", ErrUserAlreadyExists)
+		Return(int64(0), ErrUserAlreadyExists)
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestRegisterUserAlreadyExists(t *testing.T) {
 func TestRegisterStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
-		Return("", errors.New("store error"))
+		Return(int64(0), errors.New("store error"))
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
@@ -86,7 +86,7 @@ func TestRegisterStoreError(t *testing.T) {
 func TestRegisterSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
-		Return("user-id", nil)
+		Return(int64(10001), nil)
 	handler := newTestHandler(userStore, new(mockSSOStore))
 
 	rr := httptest.NewRecorder()
@@ -100,14 +100,14 @@ type mockSSOStore struct {
 	mock.Mock
 }
 
-func (store *mockSSOStore) Create(ctx context.Context, userID string) (string, error) {
+func (store *mockSSOStore) Create(ctx context.Context, userID int64) (string, error) {
 	args := store.Called(ctx, userID)
 	return args.String(0), args.Error(1)
 }
 
-func (store *mockSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
+func (store *mockSSOStore) GetUserID(ctx context.Context, sessionID string) (int64, error) {
 	args := store.Called(ctx, sessionID)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (store *mockSSOStore) Delete(ctx context.Context, sessionID string) error {
@@ -171,7 +171,7 @@ func (l discardLogger) ErrorCtx(ctx context.Context, msg string, args ...any) {
 func TestLoginUserNotFound(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
-		Return("", "", ErrUserNotFound)
+		Return(int64(0), "", ErrUserNotFound)
 	ssoStore := new(mockSSOStore)
 	handler := newTestHandler(userStore, ssoStore)
 
@@ -282,7 +282,7 @@ func TestLogoutSuccess(t *testing.T) {
 func TestLoginStoreError(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
-		Return("", "", errors.New("store error"))
+		Return(int64(0), "", errors.New("store error"))
 	ssoStore := new(mockSSOStore)
 	handler := newTestHandler(userStore, ssoStore)
 
@@ -301,7 +301,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	require.NoError(t, err)
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
-		Return("user-id", passwordHash, nil)
+		Return(int64(10001), passwordHash, nil)
 	ssoStore := new(mockSSOStore)
 	handler := newTestHandler(userStore, ssoStore)
 
@@ -320,9 +320,9 @@ func TestLoginSuccess(t *testing.T) {
 	require.NoError(t, err)
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
-		Return("user-id", passwordHash, nil)
+		Return(int64(10001), passwordHash, nil)
 	ssoStore := new(mockSSOStore)
-	ssoStore.On("Create", mock.Anything, "user-id").
+	ssoStore.On("Create", mock.Anything, int64(10001)).
 		Return("session-id", nil)
 	handler := newTestHandler(userStore, ssoStore)
 

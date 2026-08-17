@@ -16,7 +16,7 @@ func TestClaimPushBatchRedisError(t *testing.T) {
 	})
 	store := NewSessionStore(nil, rdb, logging.NewServerLog())
 
-	result, err := store.ClaimPushBatch(t.Context(), "10001", "session-id-1", 1)
+	result, err := store.ClaimPushBatch(t.Context(), 10001, "session-id-1", 1)
 
 	require.Error(t, err)
 	require.Equal(t, ClaimPushBatchLuaErr, result.LuaResult)

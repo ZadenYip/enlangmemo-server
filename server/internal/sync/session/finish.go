@@ -26,7 +26,7 @@ const (
 //go:embed scripts/update_last_sync_time.sql
 var updateLastSyncTimeSQL string
 
-func (s *SessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+func (s *SessionStore) FinishSync(ctx context.Context, userID int64, sessionID string, finishTime int64) error {
 	result, err := checkFinishSessionScript.Run(
 		ctx,
 		s.rdb,
@@ -79,7 +79,7 @@ const (
 	ReleaseSessionLuaIDMismatch
 )
 
-func (s *SessionStore) releaseSyncSession(ctx context.Context, userID, sessionID string) error {
+func (s *SessionStore) releaseSyncSession(ctx context.Context, userID int64, sessionID string) error {
 	result, err := releaseSessionScript.Run(
 		ctx,
 		s.rdb,
@@ -94,7 +94,7 @@ func (s *SessionStore) releaseSyncSession(ctx context.Context, userID, sessionID
 	return s.handleReleaseResult(ctx, userID, sessionID, ReleaseSessionLuaResult(result))
 }
 
-func (s *SessionStore) handleReleaseResult(ctx context.Context, userID, sessionID string, result ReleaseSessionLuaResult) error {
+func (s *SessionStore) handleReleaseResult(ctx context.Context, userID int64, sessionID string, result ReleaseSessionLuaResult) error {
 	switch result {
 	case ReleaseSessionLuaOK:
 		return nil

@@ -18,7 +18,7 @@ func newSyncTestClient() syncv1connect.SyncServiceClient {
 	return testenv.ConnectRPCClient(suite, syncv1connect.NewSyncServiceClient)
 }
 
-func newSyncTestAccessToken(t *testing.T, userID string) string {
+func newSyncTestAccessToken(t *testing.T, userID int64) string {
 	t.Helper()
 	store := oauth.NewOAStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 	accessToken, err := store.GenAccessToken(t.Context(), "sync-integration-client", userID)

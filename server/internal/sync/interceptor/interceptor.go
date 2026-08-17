@@ -28,6 +28,9 @@ func NewAuthInterceptor(s oauth.OAStorer) connect.UnaryInterceptorFunc {
 			case err != nil:
 				return nil, connect.NewError(connect.CodeInternal, nil)
 			}
+			if userID <= 0 {
+				return nil, connect.NewError(connect.CodeInternal, nil)
+			}
 
 			ctx = context.WithValue(ctx, "userID", userID)
 			return next(ctx, r)
