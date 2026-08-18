@@ -70,7 +70,13 @@ func TestPushCollectionSuccess(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int32(1), resp.Msg.BatchSeq)
-	require.Equal(t, handshakeResp.ServerSyncCursorUsn, resp.Msg.AssignedUsn)
+	require.Len(t, resp.Msg.Changes, 1)
+	assignedChange := resp.Msg.Changes[0]
+	require.Equal(t, collectionID, assignedChange.EntityId)
+	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_COLLECTION, assignedChange.EntityType)
+	require.Equal(t, syncv1.ChangeOp_CHANGE_OP_ASSIGN_USN, assignedChange.Op)
+	require.Equal(t, handshakeResp.ServerSyncCursorUsn, assignedChange.GetUsn())
+	assignedUSN := assignedChange.GetUsn()
 
 	var gotCollection struct {
 		USN                 int64
@@ -100,9 +106,9 @@ func TestPushCollectionSuccess(t *testing.T) {
 		&gotCollection.IsDeleted,
 	)
 	require.NoError(t, err)
-	require.Equal(t, resp.Msg.AssignedUsn, gotCollection.USN)
+	require.Equal(t, assignedUSN, gotCollection.USN)
 	require.Equal(t, collection.SqliteSchemaVersion, gotCollection.SQLiteSchemaVersion)
-	require.Equal(t, resp.Msg.AssignedUsn+1, gotCollection.SyncCursorUSN)
+	require.Equal(t, assignedUSN+1, gotCollection.SyncCursorUSN)
 	require.Equal(t, collection.CreatedAt, gotCollection.CreatedAt)
 	require.Equal(t, collection.UpdatedAt, gotCollection.UpdatedAt)
 	require.Equal(t, "ok", gotCollection.ConfigSync)
@@ -123,7 +129,7 @@ func TestPushCollectionSuccess(t *testing.T) {
 		collectionUUID[:],
 	).Scan(&gotSyncUnit.USN, &gotSyncUnit.EntityType, &gotSyncUnit.Op, &gotSyncUnit.UpdatedAt)
 	require.NoError(t, err)
-	require.Equal(t, resp.Msg.AssignedUsn, gotSyncUnit.USN)
+	require.Equal(t, assignedUSN, gotSyncUnit.USN)
 	require.Equal(t, int32(syncv1.EntityType_ENTITY_TYPE_COLLECTION), gotSyncUnit.EntityType)
 	require.Equal(t, int32(syncv1.ChangeOp_CHANGE_OP_UPSERT), gotSyncUnit.Op)
 	require.Equal(t, collection.UpdatedAt, gotSyncUnit.UpdatedAt)

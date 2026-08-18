@@ -17,6 +17,7 @@ type fakePushSessionStore struct {
 	claimResultSet bool
 	claimErr       error
 	assignedUSN    int64
+	changeCount    int
 }
 
 func (s *fakePushSessionStore) CreateSession(ctx context.Context, session ss.SyncSession) (ss.CreateSessionResult, error) {
@@ -27,11 +28,12 @@ func (s *fakePushSessionStore) GetSession(ctx context.Context, userID int64) (ss
 	panic("GetSession should not be called")
 }
 
-func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32) (ss.ClaimPushBatchResult, error) {
+func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32, changeCount int) (ss.ClaimPushBatchResult, error) {
+	s.changeCount = changeCount
 	if !s.claimResultSet && s.claimErr == nil {
-		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
+		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedStartUSN: s.assignedUSN}, nil
 	}
-	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedUSN: s.assignedUSN}, s.claimErr
+	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedStartUSN: s.assignedUSN}, s.claimErr
 }
 
 func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
@@ -59,7 +61,7 @@ func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID int64, ses
 }
 
 func TestClaimPushBatch(t *testing.T) {
-	const wantAssignedUSN int64 = 13
+	const wantAssignedStartUSN int64 = 13
 
 	tests := []struct {
 		name        string
@@ -75,6 +77,10 @@ func TestClaimPushBatch(t *testing.T) {
 			req: &syncv1.PushRequest{
 				SessionId: "session-1",
 				BatchSeq:  2,
+				Changes: []*syncv1.SyncChange{
+					{Usn: -1},
+					{Usn: -1},
+				},
 			},
 		},
 		{
@@ -125,8 +131,9 @@ func TestClaimPushBatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			userID := int64(10001)
 			ctx := context.WithValue(context.Background(), "userID", userID)
+			sessionStore := &fakePushSessionStore{claimResult: tt.claimResult, claimResultSet: tt.claimResult != 0, claimErr: tt.claimErr, assignedUSN: wantAssignedStartUSN}
 			handler := &SyncHandler{
-				sessionStore: &fakePushSessionStore{claimResult: tt.claimResult, claimResultSet: tt.claimResult != 0, claimErr: tt.claimErr, assignedUSN: wantAssignedUSN},
+				sessionStore: sessionStore,
 				logger:       logging.NewServerLog(),
 			}
 
@@ -138,7 +145,8 @@ func TestClaimPushBatch(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, ss.ClaimPushBatchLuaOK, result.LuaResult)
-			require.Equal(t, wantAssignedUSN, result.AssignedUSN)
+			require.Equal(t, wantAssignedStartUSN, result.AssignedStartUSN)
+			require.Equal(t, len(tt.req.GetChanges()), sessionStore.changeCount)
 		})
 	}
 }

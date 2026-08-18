@@ -9,8 +9,8 @@ import (
 )
 
 type ClaimPushBatchResult struct {
-	LuaResult   ClaimPushBatchLuaResult
-	AssignedUSN int64
+	LuaResult        ClaimPushBatchLuaResult
+	AssignedStartUSN int64
 }
 
 type ClaimPushBatchLuaResult int64
@@ -28,17 +28,18 @@ const (
 var claimPushBatchLua string
 var claimPushBatchScript = redis.NewScript(claimPushBatchLua)
 
-func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error) {
+func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32, changeCount int) (ClaimPushBatchResult, error) {
 	rawResult, err := claimPushBatchScript.Run(
 		ctx,
 		s.rdb,
 		[]string{rdbSessionKey(userID)},
 		sessionID,
 		curBatchSeq,
+		changeCount,
 		syncSessionTTLSecs,
 	).Int64Slice()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to claim push batch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to claim push batch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "changeCount", changeCount, "error", err)
 		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, err
 	}
 
@@ -48,8 +49,8 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, session
 	}
 
 	result := ClaimPushBatchResult{
-		LuaResult:   ClaimPushBatchLuaResult(rawResult[0]),
-		AssignedUSN: rawResult[1],
+		LuaResult:        ClaimPushBatchLuaResult(rawResult[0]),
+		AssignedStartUSN: rawResult[1],
 	}
 
 	switch result.LuaResult {
@@ -62,10 +63,10 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, session
 		s.logger.InfoCtx(ctx, "sync session id mismatch", "userID", userID, "sessionID", sessionID)
 		return result, nil
 	case ClaimPushBatchLuaBatchSeqMismatch:
-		s.logger.InfoCtx(ctx, "sync batch seq mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq)
+		s.logger.InfoCtx(ctx, "sync batch seq mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "changeCount", changeCount)
 		return result, nil
 	case ClaimPushBatchLuaStateMismatch:
-		s.logger.InfoCtx(ctx, "sync session state mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq)
+		s.logger.InfoCtx(ctx, "sync session state mismatch", "userID", userID, "sessionID", sessionID, "currentBatchSeq", curBatchSeq, "changeCount", changeCount)
 		return result, nil
 	default:
 		if session, err := s.GetSession(ctx, userID); err == nil {

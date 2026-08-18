@@ -25,7 +25,7 @@ func (h *SyncHandler) Push(ctx context.Context,
 	}
 
 	// 应用 push changes
-	err = h.pshStore.ApplyPushChanges(ctx, userID, result.AssignedUSN, req.Msg.Changes)
+	assignedChanges, err := h.pshStore.ApplyPushChanges(ctx, userID, result.AssignedStartUSN, req.Msg.Changes)
 	if err != nil {
 		h.logger.InfoCtx(ctx, "ApplyPushChanges failed", "userID", userID, "error", err)
 		if errors.Is(err, errInvalidPushChange) {
@@ -35,7 +35,7 @@ func (h *SyncHandler) Push(ctx context.Context,
 	}
 
 	// 应用成功
-	h.logger.InfoCtx(ctx, "ApplyPushChanges success", "userID", userID, "assignedUSN", result.AssignedUSN)
+	h.logger.InfoCtx(ctx, "ApplyPushChanges success", "userID", userID, "assignedStartUSN", result.AssignedStartUSN, "changeCount", len(req.Msg.Changes))
 	// 如果是最后一个 batch，则标记 push 完成
 	if req.Msg.LastBatch {
 		if err := h.sessionStore.MarkPushFinished(ctx, userID, req.Msg.SessionId); err != nil {
@@ -43,18 +43,21 @@ func (h *SyncHandler) Push(ctx context.Context,
 		}
 	}
 	return connect.NewResponse(&syncv1.PushResponse{
-		BatchSeq:    req.Msg.BatchSeq,
-		AssignedUsn: result.AssignedUSN,
+		BatchSeq: req.Msg.BatchSeq,
+		Changes:  assignedChanges,
 	}), nil
 }
 
-// claimPushBatch 会校验 Push session 状态和 batch seq，并领取当前 batch 的 assigned_usn。
+// claimPushBatch 校验 Push session 状态和 batch_seq，
+// 并根据本 batch 的 changes 并推进 USN 到本 batch 的最后一条 change。
+// 返回的 AssignedStartUSN 是本 batch 第一条 change 对应的 USN。
 func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushRequest, userID int64) (ss.ClaimPushBatchResult, error) {
 	result, err := h.sessionStore.ClaimPushBatch(
 		ctx,
 		userID,
 		req.GetSessionId(),
 		req.GetBatchSeq(),
+		len(req.GetChanges()),
 	)
 	if err != nil {
 		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)

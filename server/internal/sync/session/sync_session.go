@@ -74,8 +74,10 @@ type SessionStorer interface {
 	// Session 超时时间为 60 秒
 	CreateSession(ctx context.Context, session SyncSession) (CreateSessionResult, error)
 
-	// ClaimPushBatch 校验 Push session 和 batch，并分配 assigned_usn（可用的下个 sync_cursor_usn）
-	ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPushBatchResult, error)
+	// claimPushBatch 校验 Push session 状态和 batch_seq，
+	// 并根据本 batch 的 changes 推进 USN 。
+	// 返回的 AssignedStartUSN 是本 batch 第一条 change 对应的 USN。
+	ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32, changeCount int) (ClaimPushBatchResult, error)
 
 	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
 	MarkPushFinished(ctx context.Context, userID int64, sessionID string) error

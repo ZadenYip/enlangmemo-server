@@ -39,7 +39,8 @@ func TestFinishSyncSuccess(t *testing.T) {
 		LastBatch: true,
 	}, accessToken))
 	require.NoError(t, err)
-	require.Equal(t, handshakeResp.ServerSyncCursorUsn, pushResp.Msg.AssignedUsn)
+	require.Len(t, pushResp.Msg.Changes, 1)
+	require.Equal(t, handshakeResp.ServerSyncCursorUsn, pushResp.Msg.Changes[0].GetUsn())
 
 	finishResp, err := client.FinishSync(t.Context(), newAuthorizedRequest(&syncv1.FinishSyncRequest{
 		SessionId: handshakeResp.GetSessionId(),

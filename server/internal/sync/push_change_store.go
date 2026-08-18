@@ -13,7 +13,7 @@ import (
 var errInvalidPushChange = errors.New("invalid push change")
 
 type PushChangeStorer interface {
-	ApplyPushChanges(ctx context.Context, userID int64, assignedUSN int64, changes []*syncv1.SyncChange) error
+	ApplyPushChanges(ctx context.Context, userID int64, assignedStartUSN int64, changes []*syncv1.SyncChange) ([]*syncv1.SyncChange, error)
 }
 
 type PushChangeStore struct {
@@ -28,35 +28,46 @@ func NewPushChangeStore(db *sql.DB, logger logging.Logger) *PushChangeStore {
 	}
 }
 
-func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID int64, assignedUSN int64, changes []*syncv1.SyncChange) error {
+func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID int64, assignedStartUSN int64, changes []*syncv1.SyncChange) ([]*syncv1.SyncChange, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to begin transaction in ApplyPushChanges", "error", err)
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 	stmtCache := NewStmtCache(ctx, tx)
 	defer stmtCache.Close()
-	info := applyChangeInfo{
-		userID:      userID,
-		assignedUSN: assignedUSN,
-	}
 
-	for _, change := range changes {
-		if err := s.applyChange(ctx, info, change, stmtCache); err != nil {
-			return err
+	assignedChanges := make([]*syncv1.SyncChange, 0, len(changes))
+	for i, change := range changes {
+		info := applyChangeInfo{
+			userID:      userID,
+			assignedUSN: assignedStartUSN + int64(i),
 		}
+		if err := s.applyChange(ctx, info, change, stmtCache); err != nil {
+			return nil, err
+		}
+		assignedChanges = append(assignedChanges, assignedUSNChange(change, info.assignedUSN))
 	}
-	if err := s.updateColSyncCursor(ctx, tx, info); err != nil {
-		return err
+	if err := s.updateColSyncCursor(ctx, tx, userID, assignedStartUSN+int64(len(changes))); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		s.logger.ErrorCtx(ctx, "failed to commit transaction in ApplyPushChanges", "error", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	return assignedChanges, nil
+}
+
+func assignedUSNChange(change *syncv1.SyncChange, assignedUSN int64) *syncv1.SyncChange {
+	return &syncv1.SyncChange{
+		EntityId:   change.GetEntityId(),
+		EntityType: change.GetEntityType(),
+		Op:         syncv1.ChangeOp_CHANGE_OP_ASSIGN_USN,
+		Usn:        assignedUSN,
+	}
 }
 
 type applyChangeInfo struct {
@@ -64,19 +75,19 @@ type applyChangeInfo struct {
 	assignedUSN int64
 }
 
-func (s *PushChangeStore) updateColSyncCursor(ctx context.Context, tx *sql.Tx, info applyChangeInfo) error {
-	result, err := tx.ExecContext(ctx, updateCollectionSyncCursorSQL, info.assignedUSN+1, info.userID)
+func (s *PushChangeStore) updateColSyncCursor(ctx context.Context, tx *sql.Tx, userID int64, nextSyncCursorUSN int64) error {
+	result, err := tx.ExecContext(ctx, updateCollectionSyncCursorSQL, nextSyncCursorUSN, userID)
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to update collection sync cursor", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to update collection sync cursor", "userID", userID, "syncCursorUSN", nextSyncCursorUSN, "error", err)
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to get rows affected after updating collection sync cursor", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to get rows affected after updating collection sync cursor", "userID", userID, "syncCursorUSN", nextSyncCursorUSN, "error", err)
 		return err
 	}
 	if rowsAffected == 0 {
-		s.logger.ErrorCtx(ctx, "collection sync cursor update affected no rows", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1)
+		s.logger.ErrorCtx(ctx, "collection sync cursor update affected no rows", "userID", userID, "syncCursorUSN", nextSyncCursorUSN)
 		return errors.New("collection sync cursor update affected no rows")
 	}
 
@@ -305,7 +316,7 @@ func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyCha
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityID,
+	_, err = stmt.ExecContext(ctx, info.userID, entityUUID,
 		info.assignedUSN,
 		payload.Name, payload.PresetTemplateId, payload.UpdatedAt, payload.NoteTemplateJson)
 	if err != nil {
