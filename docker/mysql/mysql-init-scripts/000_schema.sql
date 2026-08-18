@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS collections (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id)
+    PRIMARY KEY (user_id),
+    INDEX ix_collections_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 集合表';
 
 CREATE TABLE IF NOT EXISTS decks (
@@ -73,7 +74,8 @@ CREATE TABLE IF NOT EXISTS decks (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_decks_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 牌组表';
 
 CREATE TABLE IF NOT EXISTS note_types (
@@ -90,7 +92,8 @@ CREATE TABLE IF NOT EXISTS note_types (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_note_types_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 笔记模板表';
 
 CREATE TABLE IF NOT EXISTS notes (
@@ -108,7 +111,8 @@ CREATE TABLE IF NOT EXISTS notes (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_notes_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 笔记表';
 
 CREATE TABLE IF NOT EXISTS processing_notes (
@@ -126,7 +130,8 @@ CREATE TABLE IF NOT EXISTS processing_notes (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_processing_notes_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 待加工笔记表';
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -153,7 +158,8 @@ CREATE TABLE IF NOT EXISTS cards (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_cards_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 卡片表';
 
 CREATE TABLE IF NOT EXISTS review_logs (
@@ -174,5 +180,6 @@ CREATE TABLE IF NOT EXISTS review_logs (
     state TINYINT NOT NULL,
     duration INT NOT NULL,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_review_logs_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 复习日志表';
