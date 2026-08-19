@@ -14,7 +14,8 @@ import (
 func TestPushCollectionMissingPayload(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "missing-payload")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -42,7 +43,8 @@ func TestPushCollectionMissingPayload(t *testing.T) {
 func TestPushCollectionSuccess(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "push-collection")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -87,7 +89,6 @@ func TestPushCollectionSuccess(t *testing.T) {
 		ConfigSync          string
 		IsDeleted           bool
 	}
-	collectionUUID := uuid.MustParse(collectionID)
 	// TODO 未来写一个 helper 简化下面的查询和扫描操作
 	err = suite.Env.DB.QueryRowContext(
 		t.Context(),
@@ -95,7 +96,7 @@ func TestPushCollectionSuccess(t *testing.T) {
 		 FROM collections
 		 WHERE user_id = ? AND id = ?`,
 		userID,
-		collectionUUID[:],
+		collectionID,
 	).Scan(
 		&gotCollection.USN,
 		&gotCollection.SQLiteSchemaVersion,
@@ -126,7 +127,7 @@ func TestPushCollectionSuccess(t *testing.T) {
 		 FROM sync_units
 		 WHERE user_id = ? AND entity_id = ?`,
 		userID,
-		collectionUUID[:],
+		collectionID,
 	).Scan(&gotSyncUnit.USN, &gotSyncUnit.EntityType, &gotSyncUnit.Op, &gotSyncUnit.UpdatedAt)
 	require.NoError(t, err)
 	require.Equal(t, assignedUSN, gotSyncUnit.USN)

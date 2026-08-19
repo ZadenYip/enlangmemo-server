@@ -40,10 +40,11 @@ func sendHandshake(t *testing.T, client syncv1connect.SyncServiceClient, accessT
 	return resp.Msg
 }
 
-func startPushSync(t *testing.T, client syncv1connect.SyncServiceClient, accessToken, collectionID string) *syncv1.HandshakeResponse {
+func startPushSync(t *testing.T, client syncv1connect.SyncServiceClient, accessToken string, collectionID []byte) *syncv1.HandshakeResponse {
 	t.Helper()
+	deviceID := uuid.Must(uuid.NewV7())
 	resp := sendHandshake(t, client, accessToken, &syncv1.HandshakeRequest{
-		DeviceId:            uuid.Must(uuid.NewV7()).String(),
+		DeviceId:            deviceID[:],
 		DeviceName:          "integration-test-device",
 		CollectionId:        collectionID,
 		ClientSyncCursorUsn: 1,

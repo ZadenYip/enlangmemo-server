@@ -13,7 +13,8 @@ import (
 func TestFinishSyncSuccess(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "finish-success")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -80,7 +81,8 @@ func TestFinishSyncSessionNotFound(t *testing.T) {
 func TestFinishSyncSessionIDMismatch(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "finish-mismatch")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)

@@ -63,7 +63,7 @@ func createSyncTestUser(t *testing.T, loginID string) int64 {
 	return id
 }
 
-func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollectionRow) string {
+func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollectionRow) []byte {
 	t.Helper()
 	collectionUUID, err := uuid.NewV7()
 	require.NoError(t, err)
@@ -87,5 +87,5 @@ func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollection
 	)
 	require.NoError(t, err)
 
-	return collectionUUID.String()
+	return collectionUUID[:]
 }

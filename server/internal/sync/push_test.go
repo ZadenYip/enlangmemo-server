@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
@@ -153,7 +154,8 @@ func TestClaimPushBatch(t *testing.T) {
 
 func TestInvalidArgumentChange(t *testing.T) {
 	deletedAt := int64(1_700_000_000_000)
-	validDeckID := "018f3f3f-8f3f-7f3f-bf3f-8f3f8f3f8f3f"
+	validDeckUUID := uuid.Must(uuid.NewV7())
+	validDeckID := validDeckUUID[:]
 	validDeckUpsert := func() *syncv1.SyncChange {
 		return &syncv1.SyncChange{
 			EntityId:   validDeckID,
@@ -202,14 +204,6 @@ func TestInvalidArgumentChange(t *testing.T) {
 			change: func() *syncv1.SyncChange {
 				change := validDeckUpsert()
 				change.EntityType = syncv1.EntityType_ENTITY_TYPE_UNSPECIFIED
-				return change
-			}(),
-		},
-		{
-			name: "entity_id must be valid uuid",
-			change: func() *syncv1.SyncChange {
-				change := validDeckDelete()
-				change.EntityId = "not-a-uuid"
 				return change
 			}(),
 		},

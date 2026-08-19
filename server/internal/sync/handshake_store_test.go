@@ -32,9 +32,9 @@ func TestGetCollectionInfoForHandshakeReturnsUnderlyingQueryError(t *testing.T) 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatabase
-// 测试数据库返回的集合 ID 无法解析为 UUID 时，返回错误
-func TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatabase(t *testing.T) {
+// TestGetCollectionInfoForHandshakeReturnsRawBytes
+// 测试数据库返回的集合 ID 会原样保留为 bytes
+func TestGetCollectionInfoForHandshakeReturnsRawBytes(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer func() {
@@ -55,7 +55,11 @@ func TestGetCollectionInfoForHandshakeReturnsErrorOnInvalidCollectionIDFromDatab
 
 	info, err := store.GetColInfoForHandshake(t.Context(), 10000)
 
-	require.Empty(t, info)
-	require.Error(t, err)
+	require.NoError(t, err)
+	require.Equal(t, []byte("invalid-uuid-bytes"), info.CollectionID)
+	require.Equal(t, int32(1), info.SQLiteSchemaVersion)
+	require.Equal(t, int64(2), info.LastSyncTime)
+	require.Equal(t, int64(3), info.SyncCursorUSN)
+	require.False(t, info.IsDeleted)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"time"
 
 	"connectrpc.com/connect"
@@ -46,7 +48,7 @@ func (h *SyncHandler) Handshake(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
-	if colInfo.CollectionID != "" && colInfo.CollectionID != r.Msg.CollectionId {
+	if len(colInfo.CollectionID) > 0 && !bytes.Equal(colInfo.CollectionID, r.Msg.GetCollectionId()) {
 		h.logger.ErrorCtx(ctx, "handshake collection id mismatch", "userID", userID, "clientCollectionID", r.Msg.CollectionId, "serverCollectionID", colInfo.CollectionID)
 		return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
 	}
@@ -75,7 +77,7 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 		SessionID:                   sessionID,
 		CliSyncCursorUSNAtHandshake: req.ClientSyncCursorUsn,
 		SrvSyncCursorUSNAtHandshake: 0,
-		DeviceID:                    req.DeviceId,
+		DeviceID:                    hex.EncodeToString(req.GetDeviceId()),
 	}, nil
 }
 

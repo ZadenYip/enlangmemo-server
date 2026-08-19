@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 )
 
@@ -38,7 +37,7 @@ func NewHandshakeStore(db *sql.DB, logger logging.Logger) *HandshakeStore {
 
 type CollectionInfoForHandshake struct {
 	// CollectionID 是集合的唯一标识符
-	CollectionID string
+	CollectionID []byte
 
 	SQLiteSchemaVersion int32
 	LastSyncTime        int64
@@ -52,7 +51,6 @@ type CollectionInfoForHandshake struct {
 
 func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error) {
 	var info CollectionInfoForHandshake
-	var colID []byte
 	const sqlStat = `
 		SELECT id, sqlite_schema_version, last_sync_time, sync_cursor_usn, is_deleted
 		FROM collections
@@ -62,7 +60,7 @@ func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int6
 		sqlStat,
 		userID,
 	).Scan(
-		&colID,
+		&info.CollectionID,
 		&info.SQLiteSchemaVersion,
 		&info.LastSyncTime,
 		&info.SyncCursorUSN,
@@ -78,12 +76,6 @@ func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int6
 		s.logger.ErrorCtx(ctx, "failed to get collection info for handshake", "error", err)
 		return CollectionInfoForHandshake{}, err
 	}
-	colUUID, err := uuid.FromBytes(colID)
-	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to parse collection id from database", "error", err, "userID", userID, "colID", colID)
-		return CollectionInfoForHandshake{}, err
-	}
-	info.CollectionID = colUUID.String()
 
 	return info, nil
 }

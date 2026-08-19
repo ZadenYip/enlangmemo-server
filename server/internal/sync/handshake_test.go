@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -165,10 +166,11 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "userID", int64(10001))
+			deviceID := []byte("0123456789abcdef")
 			mockStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 			handler := &SyncHandler{
 				hskStore: &fakeHandshakeStore{pullEntityQueue: tt.wantEntityQueue, colInfo: CollectionInfoForHandshake{
-					CollectionID:  "collection-1",
+					CollectionID:  []byte("collection-1"),
 					SyncCursorUSN: tt.serverCursor,
 					LastSyncTime:  tt.serverLastSync,
 				}},
@@ -177,10 +179,10 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			}
 
 			resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
-				CollectionId:        "collection-1",
+				CollectionId:        []byte("collection-1"),
 				ClientNow:           time.Now().UnixMilli(),
 				ClientSyncCursorUsn: tt.clientCursor,
-				DeviceId:            "device-1",
+				DeviceId:            deviceID,
 				HasLocalChanges:     tt.hasLocalChanges,
 			}))
 
@@ -204,7 +206,7 @@ func TestHandshakeStatusAndSessionState(t *testing.T) {
 			require.NotNil(t, resp.Msg.SessionId)
 			require.NotEmpty(t, *resp.Msg.SessionId)
 			require.Equal(t, int64(10001), mockStore.createdSession.UserID)
-			require.Equal(t, "device-1", mockStore.createdSession.DeviceID)
+			require.Equal(t, hex.EncodeToString(deviceID), mockStore.createdSession.DeviceID)
 			require.Equal(t, tt.wantState, mockStore.createdSession.State)
 			require.Equal(t, tt.wantBatchSeq, mockStore.createdSession.ExpectedBatchSeq)
 			require.Equal(t, tt.wantSyncCursor, mockStore.createdSession.SyncCursorUSN)
@@ -222,7 +224,7 @@ func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
-			CollectionID:  "collection-1",
+			CollectionID:  []byte("collection-1"),
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: sessionStore,
@@ -230,11 +232,11 @@ func TestHandshakeTimeSkewTooLargeDoesNotCreateSession(t *testing.T) {
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
-		CollectionId: "collection-1",
+		CollectionId: []byte("collection-1"),
 		// 偏差 6 分钟，超过 5 分钟的阈值
 		ClientNow:           time.Now().Add(6 * time.Minute).UnixMilli(),
 		ClientSyncCursorUsn: 10,
-		DeviceId:            "device-1",
+		DeviceId:            []byte("device-1"),
 	}))
 
 	require.NoError(t, err)
@@ -254,7 +256,7 @@ func TestHandshakeStoreErrors(t *testing.T) {
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
-		CollectionId: "collection-1",
+		CollectionId: []byte("collection-1"),
 		ClientNow:    time.Now().UnixMilli(),
 	}))
 
@@ -269,7 +271,7 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
-			CollectionID:  "collection-1",
+			CollectionID:  []byte("collection-1"),
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: newFakeSessionStore(t, ss.CreateSessionAlreadyExists),
@@ -277,10 +279,10 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
-		CollectionId:        "collection-1",
+		CollectionId:        []byte("collection-1"),
 		ClientNow:           time.Now().UnixMilli(),
 		ClientSyncCursorUsn: 10,
-		DeviceId:            "device-1",
+		DeviceId:            []byte("device-1"),
 		HasLocalChanges:     true,
 	}))
 
@@ -292,7 +294,7 @@ func TestHandshakeCollectionIDMismatch(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", int64(10001))
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
-			CollectionID:  "server-collection",
+			CollectionID:  []byte("server-collection"),
 			SyncCursorUSN: 10,
 		}},
 		sessionStore: newFakeSessionStore(t, ss.CreateSessionCreated),
@@ -300,10 +302,10 @@ func TestHandshakeCollectionIDMismatch(t *testing.T) {
 	}
 
 	resp, err := handler.Handshake(ctx, connect.NewRequest(&syncv1.HandshakeRequest{
-		CollectionId:        "client-collection",
+		CollectionId:        []byte("client-collection"),
 		ClientNow:           time.Now().UnixMilli(),
 		ClientSyncCursorUsn: 10,
-		DeviceId:            "device-1",
+		DeviceId:            []byte("device-1"),
 	}))
 
 	require.Nil(t, resp)
