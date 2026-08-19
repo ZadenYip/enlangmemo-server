@@ -1,4 +1,4 @@
-package sync
+package sql
 
 import (
 	"errors"
@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 测试 StmtCache 在 预编译 SQL 语句时出错的情况
-func TestStmtCacheGetPrepareError(t *testing.T) {
+// 测试 Pull StmtCache 在预编译 SQL 语句时出错的情况
+func TestPullStmtCacheGetPrepareError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -18,13 +18,13 @@ func TestStmtCacheGetPrepareError(t *testing.T) {
 	})
 	wantErr := errors.New("prepare failed")
 	mock.ExpectBegin()
-	mock.ExpectPrepare(regexp.QuoteMeta(pushOpToSQL[PushOpUpsertDeck])).WillReturnError(wantErr)
+	mock.ExpectPrepare(regexp.QuoteMeta(pullOpToSQL[PullOpSelectCards])).WillReturnError(wantErr)
 	tx, err := db.BeginTx(t.Context(), nil)
 	require.NoError(t, err)
 	defer tx.Rollback()
-	stmtCache := NewStmtCache(t.Context(), tx)
+	stmtCache := NewPullStmtCache(t.Context(), tx)
 
-	stmt, err := stmtCache.Get(t.Context(), PushOpUpsertDeck)
+	stmt, err := stmtCache.GetPull(t.Context(), PullOpSelectCards)
 
 	require.Nil(t, stmt)
 	require.ErrorIs(t, err, wantErr)

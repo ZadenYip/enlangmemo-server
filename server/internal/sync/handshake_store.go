@@ -88,7 +88,7 @@ func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int6
 	return info, nil
 }
 
-//go:embed scripts/select_pull_entity_types.sql
+//go:embed sql/scripts/select_pull_entity_types.sql
 var pullEntityTypesSQL string
 
 func (s *HandshakeStore) GetPullEntityQueueForHandshake(ctx context.Context, userID int64, minUSNInclusive, maxUSNExclusive int64) (string, error) {

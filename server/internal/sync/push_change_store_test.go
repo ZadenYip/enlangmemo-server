@@ -8,6 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	syncsql "github.com/zadenyip/enlangmemo-server/internal/sync/sql"
 )
 
 // TestApplyPushChangesBeginTxError 测试 ApplyPushChanges 在打开事务过程数据库出错的情况
@@ -36,7 +37,7 @@ func TestUpdateColSyncCursorExecError(t *testing.T) {
 	})
 	wantErr := errors.New("update failed")
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
+	mock.ExpectExec(regexp.QuoteMeta(syncsql.UpdateCollectionSyncCursorSQL())).
 		WithArgs(13, 10001).
 		WillReturnError(wantErr)
 	tx, err := db.BeginTx(t.Context(), nil)
@@ -59,7 +60,7 @@ func TestUpdateColSyncCursorRowsAffectedError(t *testing.T) {
 	})
 	wantErr := errors.New("rows affected failed")
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
+	mock.ExpectExec(regexp.QuoteMeta(syncsql.UpdateCollectionSyncCursorSQL())).
 		WithArgs(13, 10001).
 		WillReturnResult(sqlmock.NewErrorResult(wantErr))
 	tx, err := db.BeginTx(t.Context(), nil)
@@ -81,7 +82,7 @@ func TestUpdateColSyncCursorNoRowsAffected(t *testing.T) {
 		_ = db.Close()
 	})
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(updateCollectionSyncCursorSQL)).
+	mock.ExpectExec(regexp.QuoteMeta(syncsql.UpdateCollectionSyncCursorSQL())).
 		WithArgs(13, 10001).
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	tx, err := db.BeginTx(t.Context(), nil)
