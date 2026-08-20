@@ -57,6 +57,10 @@ func Serve(ctx context.Context, listener net.Listener) error {
 			logger.Error().Error("server shutdown failed", "err", err)
 			return err
 		}
+		if err := server.GracefulShutdown(); err != nil {
+			logger.Error().Error("server graceful shutdown failed", "err", err)
+			return err
+		}
 		return nil
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {

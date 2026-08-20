@@ -60,6 +60,7 @@ func (h *SyncHandler) claimPushBatch(ctx context.Context, req *syncv1.PushReques
 		len(req.GetChanges()),
 	)
 	if err != nil {
+		h.logger.ErrorCtx(ctx, "ClaimPushBatch failed", "userID", userID, "sessionID", req.GetSessionId(), "batchSeq", req.GetBatchSeq(), "error", err)
 		return ss.ClaimPushBatchResult{}, connect.NewError(connect.CodeInternal, nil)
 	}
 

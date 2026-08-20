@@ -82,13 +82,8 @@ func (s *fakeSessionStore) ClaimPullBatch(ctx context.Context, userID int64, ses
 	return args.Get(0).(ss.ClaimPullBatchResult), args.Error(1)
 }
 
-func (s *fakeSessionStore) AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error {
-	args := s.Called(ctx, userID, sessionID, newSyncCursorUSN)
-	return args.Error(0)
-}
-
-func (s *fakeSessionStore) MarkPullEntityFinished(ctx context.Context, userID int64, sessionID, remainingPullEntityQueue string) error {
-	args := s.Called(ctx, userID, sessionID, remainingPullEntityQueue)
+func (s *fakeSessionStore) UpdatePullProgress(ctx context.Context, userID int64, sessionID string, remainingPullEntityQueue string, syncCursorUSN int64) error {
+	args := s.Called(ctx, userID, sessionID, remainingPullEntityQueue, syncCursorUSN)
 	return args.Error(0)
 }
 

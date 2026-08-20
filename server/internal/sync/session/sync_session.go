@@ -86,12 +86,8 @@ type SessionStorer interface {
 	// 如果校验失败则返回 (ClaimPullBatchResult, nil)，如果是内部错误则返回 (ClaimPullBatchResult{}, error)
 	ClaimPullBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) (ClaimPullBatchResult, error)
 
-	// AdvancePullCursor 在 Pull batch 处理完成后，更新 sync_cursor_usn
-	AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error
-
-	// MarkPullEntityFinished 在当前实体类型拉取完成后，
-	// 更新剩余实体类型队列，并重置 sync_cursor_usn 为 client_sync_cursor_usn_at_handshake
-	MarkPullEntityFinished(ctx context.Context, userID int64, sessionID, remainingPullEntityQueue string) error
+	// UpdatePullProgress 在 Pull batch 处理完成后，更新剩余实体类型队列和 sync_cursor_usn
+	UpdatePullProgress(ctx context.Context, userID int64, sessionID string, remainingPullEntityQueue string, syncCursorUSN int64) error
 
 	// MarkPullFinished 在最后一个 Pull batch 处理完成后，将 session state 改为 AWAITING_PUSH_OR_FINISH
 	MarkPullFinished(ctx context.Context, userID int64, sessionID string) error

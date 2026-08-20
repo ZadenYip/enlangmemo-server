@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 测试 StmtCache 在 预编译 SQL 语句时出错的情况
+// 测试 PushStmtCache 在 预编译 SQL 语句时出错的情况
 func TestStmtCacheGetPrepareError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

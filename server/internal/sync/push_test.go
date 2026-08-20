@@ -45,12 +45,8 @@ func (s *fakePushSessionStore) ClaimPullBatch(ctx context.Context, userID int64,
 	panic("ClaimPullBatch should not be called")
 }
 
-func (s *fakePushSessionStore) AdvancePullCursor(ctx context.Context, userID int64, sessionID string, newSyncCursorUSN int64) error {
-	panic("AdvancePullCursor should not be called")
-}
-
-func (s *fakePushSessionStore) MarkPullEntityFinished(ctx context.Context, userID int64, sessionID, remainingPullEntityQueue string) error {
-	panic("MarkPullEntityFinished should not be called")
+func (s *fakePushSessionStore) UpdatePullProgress(ctx context.Context, userID int64, sessionID string, remainingPullEntityQueue string, syncCursorUSN int64) error {
+	panic("UpdatePullProgress should not be called")
 }
 
 func (s *fakePushSessionStore) MarkPullFinished(ctx context.Context, userID int64, sessionID string) error {
