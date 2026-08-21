@@ -20,14 +20,14 @@ type DeckRow struct {
 }
 
 const (
-	deckIDSize              = 16
-	deckUsnSize             = 8
-	deckUpdatedAtSize       = 8
-	deckNewCardsPerDaySize  = 4
-	deckNewLearnedTodaySize = 4
-	deckLearnedTodaySize    = 4
-	deckReviewedTodaySize   = 4
-	deckIsDeletedSize       = 1
+	DeckIDSize              = 16
+	DeckUsnSize             = 8
+	DeckUpdatedAtSize       = 8
+	DeckNewCardsPerDaySize  = 4
+	DeckNewLearnedTodaySize = 4
+	DeckLearnedTodaySize    = 4
+	DeckReviewedTodaySize   = 4
+	DeckIsDeletedSize       = 1
 )
 
 func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult, error) {
@@ -61,8 +61,8 @@ func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult
 			return CollectResult{}, err
 		}
 
-		const fixedSize = deckIDSize + deckUsnSize + deckUpdatedAtSize + deckNewCardsPerDaySize + deckNewLearnedTodaySize + deckLearnedTodaySize + deckReviewedTodaySize + deckIsDeletedSize
-		const deletedSize = deckIDSize + deckUsnSize + deckUpdatedAtSize + deckIsDeletedSize
+		const fixedSize = DeckIDSize + DeckUsnSize + DeckUpdatedAtSize + DeckNewCardsPerDaySize + DeckNewLearnedTodaySize + DeckLearnedTodaySize + DeckReviewedTodaySize + DeckIsDeletedSize
+		const deletedSize = DeckIDSize + DeckUsnSize + DeckUpdatedAtSize + DeckIsDeletedSize
 
 		if row.IsDeleted {
 			c.actualSize += deletedSize
@@ -96,7 +96,7 @@ func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult
 		}
 
 		result.SyncCursorUsn = row.Usn + 1
-		c.maxUSN = max(result.SyncCursorUsn, c.maxUSN)
+		c.recordMaxUSN(row.Usn)
 		count++
 	}
 	if err := rows.Err(); err != nil {

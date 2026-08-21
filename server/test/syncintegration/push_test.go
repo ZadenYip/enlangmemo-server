@@ -80,40 +80,15 @@ func TestPushCollectionSuccess(t *testing.T) {
 	require.Equal(t, handshakeResp.ServerSyncCursorUsn, assignedChange.GetUsn())
 	assignedUSN := assignedChange.GetUsn()
 
-	var gotCollection struct {
-		USN                 int64
-		SQLiteSchemaVersion int32
-		SyncCursorUSN       int64
-		CreatedAt           int64
-		UpdatedAt           int64
-		ConfigSync          string
-		IsDeleted           bool
-	}
-	// TODO 未来写一个 helper 简化下面的查询和扫描操作
-	err = suite.Env.DB.QueryRowContext(
-		t.Context(),
-		`SELECT usn, sqlite_schema_version, sync_cursor_usn, created_at, updated_at, JSON_UNQUOTE(JSON_EXTRACT(config, '$.sync')), is_deleted
-		 FROM collections
-		 WHERE user_id = ? AND id = ?`,
-		userID,
-		collectionID,
-	).Scan(
-		&gotCollection.USN,
-		&gotCollection.SQLiteSchemaVersion,
-		&gotCollection.SyncCursorUSN,
-		&gotCollection.CreatedAt,
-		&gotCollection.UpdatedAt,
-		&gotCollection.ConfigSync,
-		&gotCollection.IsDeleted,
-	)
-	require.NoError(t, err)
-	require.Equal(t, assignedUSN, gotCollection.USN)
-	require.Equal(t, collection.SqliteSchemaVersion, gotCollection.SQLiteSchemaVersion)
-	require.Equal(t, assignedUSN+1, gotCollection.SyncCursorUSN)
-	require.Equal(t, collection.CreatedAt, gotCollection.CreatedAt)
-	require.Equal(t, collection.UpdatedAt, gotCollection.UpdatedAt)
-	require.Equal(t, "ok", gotCollection.ConfigSync)
-	require.False(t, gotCollection.IsDeleted)
+	gotCol := getSyncTestCollection(t, userID, collectionID)
+	require.Equal(t, collectionID, gotCol.ID)
+	require.Equal(t, assignedUSN, gotCol.USN)
+	require.Equal(t, collection.SqliteSchemaVersion, gotCol.SQLiteSchemaVersion)
+	require.Equal(t, assignedUSN+1, gotCol.SyncCursorUSN)
+	require.Equal(t, collection.CreatedAt, gotCol.CreatedAt)
+	require.Equal(t, collection.UpdatedAt, gotCol.UpdatedAt)
+	require.JSONEq(t, collection.ConfigJson, gotCol.ConfigJSON)
+	require.False(t, gotCol.IsDeleted)
 
 	var gotSyncUnit struct {
 		USN        int64

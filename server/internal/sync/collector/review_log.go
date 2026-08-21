@@ -21,17 +21,17 @@ type ReviewLogRow struct {
 }
 
 const (
-	reviewLogIDSize            = 16
-	reviewLogUsnSize           = 8
-	reviewLogCardIDSize        = 16
-	reviewLogReviewTimeSize    = 8
-	reviewLogScheduledDaysSize = 4
-	reviewLogRatingSize        = 4
-	reviewLogDifficultySize    = 8
-	reviewLogStabilitySize     = 8
-	reviewLogLearningStepsSize = 4
-	reviewLogStateSize         = 4
-	reviewLogDurationSize      = 4
+	ReviewIDSize            = 16
+	ReviewUsnSize           = 8
+	ReviewCardIDSize        = 16
+	ReviewReviewTimeSize    = 8
+	ReviewScheduledDaysSize = 4
+	ReviewRatingSize        = 4
+	ReviewDifficultySize    = 8
+	ReviewStabilitySize     = 8
+	ReviewLearningStepsSize = 4
+	ReviewStateSize         = 4
+	ReviewDurationSize      = 4
 )
 
 func (c *PullCollector) AddReviewLogChanges(rows *sql.Rows, limit int) (CollectResult, error) {
@@ -68,10 +68,10 @@ func (c *PullCollector) AddReviewLogChanges(rows *sql.Rows, limit int) (CollectR
 		if err != nil {
 			return CollectResult{}, err
 		}
-		const size = reviewLogIDSize + reviewLogUsnSize + reviewLogCardIDSize +
-			reviewLogReviewTimeSize + reviewLogScheduledDaysSize + reviewLogRatingSize +
-			reviewLogDifficultySize + reviewLogStabilitySize + reviewLogLearningStepsSize +
-			reviewLogStateSize + reviewLogDurationSize
+		const size = ReviewIDSize + ReviewUsnSize + ReviewCardIDSize +
+			ReviewReviewTimeSize + ReviewScheduledDaysSize + ReviewRatingSize +
+			ReviewDifficultySize + ReviewStabilitySize + ReviewLearningStepsSize +
+			ReviewStateSize + ReviewDurationSize
 		c.actualSize += size
 
 		payload := syncv1.ReviewLogPayload{
@@ -95,7 +95,7 @@ func (c *PullCollector) AddReviewLogChanges(rows *sql.Rows, limit int) (CollectR
 		}
 		c.syncChanges = append(c.syncChanges, syncChange)
 		result.SyncCursorUsn = row.Usn + 1
-		c.maxUSN = max(result.SyncCursorUsn, c.maxUSN)
+		c.recordMaxUSN(row.Usn)
 
 		count++
 	}

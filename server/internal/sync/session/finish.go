@@ -30,7 +30,7 @@ func (s *SessionStore) FinishSync(ctx context.Context, userID int64, sessionID s
 	result, err := checkFinishSessionScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		syncSessionTTLSecs,
 	).Int64()
@@ -83,7 +83,7 @@ func (s *SessionStore) releaseSyncSession(ctx context.Context, userID int64, ses
 	result, err := releaseSessionScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 	).Int64()
 	if err != nil {

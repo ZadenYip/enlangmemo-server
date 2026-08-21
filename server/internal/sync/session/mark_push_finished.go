@@ -26,7 +26,7 @@ func (s *SessionStore) MarkPushFinished(ctx context.Context, userID int64, sessi
 	result, err := markPushFinishedScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		syncSessionTTLSecs,
 	).Int64()

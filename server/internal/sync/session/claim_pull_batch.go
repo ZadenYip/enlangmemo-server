@@ -37,7 +37,7 @@ func (s *SessionStore) ClaimPullBatch(ctx context.Context, userID int64, session
 	rawResult, err := claimPullBatchScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		curBatchSeq,
 		syncSessionTTLSecs,

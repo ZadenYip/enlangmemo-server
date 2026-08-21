@@ -18,13 +18,13 @@ type ProcessingNoteRow struct {
 }
 
 const (
-	processingNoteIDSize         = 16
-	processingNoteUsnSize        = 8
-	processingNoteNoteTypeIDSize = 16
-	processingNoteCreatedAtSize  = 8
-	processingNoteUpdatedAtSize  = 8
-	processingNoteSenseIDSize    = 4
-	processingNoteIsDeletedSize  = 1
+	PcsNoteIDSize         = 16
+	PcsNoteUsnSize        = 8
+	PcsNoteNoteTypeIDSize = 16
+	PcsNoteCreatedAtSize  = 8
+	PcsNoteUpdatedAtSize  = 8
+	PcsNoteSenseIDSize    = 4
+	PcsNoteIsDeletedSize  = 1
 )
 
 func (c *PullCollector) AddProcessingNoteChanges(rows *sql.Rows, limit int) (CollectResult, error) {
@@ -56,8 +56,8 @@ func (c *PullCollector) AddProcessingNoteChanges(rows *sql.Rows, limit int) (Col
 			return CollectResult{}, err
 		}
 
-		const fixedSize = processingNoteIDSize + processingNoteNoteTypeIDSize + processingNoteUsnSize + processingNoteCreatedAtSize + processingNoteUpdatedAtSize + processingNoteSenseIDSize + processingNoteIsDeletedSize
-		const deletedSize = processingNoteIDSize + processingNoteUsnSize + processingNoteUpdatedAtSize + processingNoteIsDeletedSize
+		const fixedSize = PcsNoteIDSize + PcsNoteNoteTypeIDSize + PcsNoteUsnSize + PcsNoteCreatedAtSize + PcsNoteUpdatedAtSize + PcsNoteSenseIDSize + PcsNoteIsDeletedSize
+		const deletedSize = PcsNoteIDSize + PcsNoteUsnSize + PcsNoteUpdatedAtSize + PcsNoteIsDeletedSize
 
 		if row.IsDeleted {
 			c.actualSize += deletedSize
@@ -93,7 +93,7 @@ func (c *PullCollector) AddProcessingNoteChanges(rows *sql.Rows, limit int) (Col
 		}
 
 		result.SyncCursorUsn = row.Usn + 1
-		c.maxUSN = max(result.SyncCursorUsn, c.maxUSN)
+		c.recordMaxUSN(row.Usn)
 		count++
 	}
 	if err := rows.Err(); err != nil {

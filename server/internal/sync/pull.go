@@ -47,7 +47,7 @@ func (h *SyncHandler) Pull(ctx context.Context,
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
-	queueStr := typeQueueToString(pullResult.typeQueue)
+	queueStr := TypeQueueToString(pullResult.typeQueue)
 	h.logger.InfoCtx(ctx, "pull result", "userID", userID, "queue", queueStr)
 
 	// pull 完了所有实体类型
@@ -105,13 +105,15 @@ func (h *SyncHandler) claimPullBatch(ctx context.Context, req *syncv1.PullReques
 // 如果转换 type 为整数失败，则返回 (0, error)
 func parseEntityQueue(typeQueue string) ([]int8, error) {
 	if typeQueue == "" {
-		return nil, nil
+		return nil, fmt.Errorf("empty entities queue: %s", typeQueue)
 	}
 
-	entities := strings.Split(",", typeQueue)
-	if len(entities) == 0 {
-		return nil, fmt.Errorf("invalid entities queue: %s", typeQueue)
-	}
+	entities := strings.Split(typeQueue, ",")
+
+	// Split 只有空字符串和分割字符为空时，len 才会返回 0
+	// if len(entities) == 0 {
+	//	return nil, fmt.Errorf("invalid entities queue: %s", typeQueue)
+	//}
 
 	intTypeQueue := make([]int8, 0, 7)
 
@@ -126,7 +128,7 @@ func parseEntityQueue(typeQueue string) ([]int8, error) {
 	return intTypeQueue, nil
 }
 
-func typeQueueToString(typeQueue []int8) string {
+func TypeQueueToString(typeQueue []int8) string {
 	if len(typeQueue) == 0 {
 		return ""
 	}

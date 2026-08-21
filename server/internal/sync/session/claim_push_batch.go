@@ -32,7 +32,7 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, session
 	rawResult, err := claimPushBatchScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		curBatchSeq,
 		changeCount,
@@ -43,6 +43,7 @@ func (s *SessionStore) ClaimPushBatch(ctx context.Context, userID int64, session
 		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, err
 	}
 
+	// 不可能进入的分支，除非迭代 lua 脚本返回值写错了
 	if len(rawResult) != 2 {
 		s.logger.ErrorCtx(ctx, "invalid claim push batch result", "result", rawResult)
 		return ClaimPushBatchResult{LuaResult: ClaimPushBatchLuaErr}, fmt.Errorf("invalid claim push batch result: %v", rawResult)

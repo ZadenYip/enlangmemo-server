@@ -18,14 +18,14 @@ type NoteRow struct {
 }
 
 const (
-	noteIDSize         = 16
-	noteUsnSize        = 8
-	noteNoteTypeIDSize = 16
-	noteCreatedAtSize  = 8
-	noteUpdatedAtSize  = 8
-	noteSenseIDSize    = 4
+	NoteIDSize         = 16
+	NoteUsnSize        = 8
+	NoteNoteTypeIDSize = 16
+	NoteCreatedAtSize  = 8
+	NoteUpdatedAtSize  = 8
+	NoteSenseIDSize    = 4
 
-	noteIsDeletedSize = 1
+	NoteIsDeletedSize = 1
 )
 
 func (c *PullCollector) AddNoteChanges(rows *sql.Rows, limit int) (CollectResult, error) {
@@ -63,8 +63,8 @@ func (c *PullCollector) AddNoteChanges(rows *sql.Rows, limit int) (CollectResult
 		}
 
 		// ID + USN + CreatedAt + UpdatedAt + IsDeleted
-		const fixedSize = noteIDSize + noteNoteTypeIDSize + noteUsnSize + noteCreatedAtSize + noteUpdatedAtSize + noteSenseIDSize + noteIsDeletedSize
-		const deletedSize = noteIDSize + noteUsnSize + noteUpdatedAtSize + noteIsDeletedSize
+		const fixedSize = NoteIDSize + NoteNoteTypeIDSize + NoteUsnSize + NoteCreatedAtSize + NoteUpdatedAtSize + NoteSenseIDSize + NoteIsDeletedSize
+		const deletedSize = NoteIDSize + NoteUsnSize + NoteUpdatedAtSize + NoteIsDeletedSize
 
 		if row.IsDeleted {
 			c.actualSize += deletedSize
@@ -103,7 +103,7 @@ func (c *PullCollector) AddNoteChanges(rows *sql.Rows, limit int) (CollectResult
 		}
 
 		result.SyncCursorUsn = row.Usn + 1
-		c.maxUSN = max(result.SyncCursorUsn, c.maxUSN)
+		c.recordMaxUSN(row.Usn)
 		count++
 	}
 	if err := rows.Err(); err != nil {

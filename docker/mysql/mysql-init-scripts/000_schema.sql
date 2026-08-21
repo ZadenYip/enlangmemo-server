@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS collections (
     updated_at BIGINT NOT NULL,
     config JSON NOT NULL,
 
+    -- 应用层不写入该字段；保留未来删除数据
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
     PRIMARY KEY (user_id),

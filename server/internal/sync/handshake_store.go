@@ -45,15 +45,13 @@ type CollectionInfoForHandshake struct {
 	// SyncCursorUSN 是集合的同步游标 USN
 	// 如果服务器集合不存在，则返回 1
 	SyncCursorUSN int64
-
-	IsDeleted bool
 }
 
 func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error) {
 	var info CollectionInfoForHandshake
 	const sqlStat = `
-		SELECT id, sqlite_schema_version, last_sync_time, sync_cursor_usn, is_deleted
-		FROM collections
+			SELECT id, sqlite_schema_version, last_sync_time, sync_cursor_usn
+			FROM collections
 		WHERE user_id = ?`
 	err := s.db.QueryRowContext(
 		ctx,
@@ -64,7 +62,6 @@ func (s *HandshakeStore) GetColInfoForHandshake(ctx context.Context, userID int6
 		&info.SQLiteSchemaVersion,
 		&info.LastSyncTime,
 		&info.SyncCursorUSN,
-		&info.IsDeleted,
 	)
 
 	switch {

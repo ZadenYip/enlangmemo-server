@@ -26,7 +26,7 @@ func (s *SessionStore) MarkPullFinished(ctx context.Context, userID int64, sessi
 	result, err := markPullFinishedScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		syncSessionTTLSecs,
 	).Int64()

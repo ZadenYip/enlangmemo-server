@@ -2,7 +2,7 @@ package collector
 
 import syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 
-const maxBatchSize = 1024 * 64
+const MaxBatchSize = 1024 * 64
 
 const (
 	LimitCol            = 300
@@ -36,12 +36,16 @@ func NewPullCollector() *PullCollector {
 	}
 }
 
+func (c *PullCollector) recordMaxUSN(usn int64) {
+	c.maxUSN = max(usn, c.maxUSN)
+}
+
 func (c *PullCollector) MaxUSN() int64 {
 	return c.maxUSN
 }
 
 func (c *PullCollector) IsFull() bool {
-	return c.actualSize >= maxBatchSize
+	return c.actualSize >= MaxBatchSize
 }
 
 func (c *PullCollector) Changes() []*syncv1.SyncChange {

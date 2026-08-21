@@ -326,7 +326,7 @@ func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyC
 	}
 	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		info.assignedUSN,
-		payload.SqliteSchemaVersion, payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson)
+		payload.SqliteSchemaVersion, payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson, false)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert collection", "error", err)
 		return err

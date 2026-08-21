@@ -21,13 +21,11 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	require.Equal(t, int64(1), info.SyncCursorUSN)
 	require.Zero(t, info.SQLiteSchemaVersion)
 	require.Zero(t, info.LastSyncTime)
-	require.False(t, info.IsDeleted)
 
 	collectionID := insertSyncTestCollection(t, userID, syncTestCollectionRow{
 		sqliteSchemaVersion: 15,
 		lastSyncTime:        1_800_000_000_000,
 		syncCursorUSN:       88,
-		isDeleted:           true,
 	})
 
 	info, err = store.GetColInfoForHandshake(ctx, userID)
@@ -36,14 +34,12 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	require.Equal(t, int32(15), info.SQLiteSchemaVersion)
 	require.Equal(t, int64(1_800_000_000_000), info.LastSyncTime)
 	require.Equal(t, int64(88), info.SyncCursorUSN)
-	require.True(t, info.IsDeleted)
 }
 
 type syncTestCollectionRow struct {
 	sqliteSchemaVersion int32
 	lastSyncTime        int64
 	syncCursorUSN       int64
-	isDeleted           bool
 }
 
 // loginID 长度不能超过 16 字符
@@ -73,8 +69,8 @@ func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollection
 		t.Context(),
 		`INSERT INTO collections (
 			user_id, id, sqlite_schema_version, last_sync_time, sync_cursor_usn,
-			usn, created_at, updated_at, config, is_deleted
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT(), ?)`,
+			usn, created_at, updated_at, config
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT())`,
 		userID,
 		collectionUUID[:],
 		row.sqliteSchemaVersion,
@@ -83,7 +79,6 @@ func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollection
 		row.syncCursorUSN,
 		now,
 		now,
-		row.isDeleted,
 	)
 	require.NoError(t, err)
 

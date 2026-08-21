@@ -3,11 +3,10 @@
 SELECT
   id,
   usn,
-  CASE WHEN is_deleted = 1 THEN NULL ELSE sqlite_schema_version END AS sqlite_schema_version,
-  CASE WHEN is_deleted = 1 THEN NULL ELSE created_at END AS created_at,
+  sqlite_schema_version,
+  created_at,
   updated_at,
-  CASE WHEN is_deleted = 1 THEN NULL ELSE config END AS config,
-  is_deleted
+  config
 FROM collections
 WHERE user_id = ?
   AND usn >= ?

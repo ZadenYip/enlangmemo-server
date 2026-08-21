@@ -7,22 +7,22 @@ import (
 )
 
 const (
-	cardIDSize            = 16
-	cardUsnSize           = 8
-	cardNoteIDSize        = 16
-	cardDeckIDSize        = 16
-	cardUpdatedAtSize     = 8
-	cardDifficultySize    = 8
-	cardStabilitySize     = 8
-	cardScheduledDaysSize = 4
-	cardDueSize           = 8
-	cardLastReviewSize    = 8
-	cardLapsesSize        = 4
-	cardLearningStepsSize = 4
-	cardRepetitionsSize   = 4
-	cardStateSize         = 4
-	cardQueueSize         = 4
-	cardIsDeletedSize     = 1
+	CardIDSize            = 16
+	CardUsnSize           = 8
+	CardNoteIDSize        = 16
+	CardDeckIDSize        = 16
+	CardUpdatedAtSize     = 8
+	CardDifficultySize    = 8
+	CardStabilitySize     = 8
+	CardScheduledDaysSize = 4
+	CardDueSize           = 8
+	CardLastReviewSize    = 8
+	CardLapsesSize        = 4
+	CardLearningStepsSize = 4
+	CardRepetitionsSize   = 4
+	CardStateSize         = 4
+	CardQueueSize         = 4
+	CardIsDeletedSize     = 1
 )
 
 type CardRow struct {
@@ -81,8 +81,8 @@ func (c *PullCollector) AddCardChanges(rows *sql.Rows, limit int) (CollectResult
 			return CollectResult{}, err
 		}
 
-		const fixedSize = cardIDSize + cardUsnSize + cardNoteIDSize + cardDeckIDSize + cardUpdatedAtSize + cardDifficultySize + cardStabilitySize + cardScheduledDaysSize + cardDueSize + cardLastReviewSize + cardLapsesSize + cardLearningStepsSize + cardRepetitionsSize + cardStateSize + cardQueueSize + cardIsDeletedSize
-		const deletedSize = cardIDSize + cardUsnSize + cardUpdatedAtSize + cardIsDeletedSize
+		const fixedSize = CardIDSize + CardUsnSize + CardNoteIDSize + CardDeckIDSize + CardUpdatedAtSize + CardDifficultySize + CardStabilitySize + CardScheduledDaysSize + CardDueSize + CardLastReviewSize + CardLapsesSize + CardLearningStepsSize + CardRepetitionsSize + CardStateSize + CardQueueSize + CardIsDeletedSize
+		const deletedSize = CardIDSize + CardUsnSize + CardUpdatedAtSize + CardIsDeletedSize
 
 		if row.IsDeleted {
 			c.actualSize += deletedSize
@@ -126,7 +126,7 @@ func (c *PullCollector) AddCardChanges(rows *sql.Rows, limit int) (CollectResult
 		}
 
 		result.SyncCursorUsn = row.Usn + 1
-		c.maxUSN = max(result.SyncCursorUsn, c.maxUSN)
+		c.recordMaxUSN(row.Usn)
 		count++
 	}
 	if err := rows.Err(); err != nil {

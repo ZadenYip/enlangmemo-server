@@ -111,6 +111,6 @@ func NewSessionStore(db *sql.DB, rdb *redis.Client, logger logging.Logger) *Sess
 	}
 }
 
-func rdbSessionKey(userID int64) string {
+func RdbSessionKey(userID int64) string {
 	return "sync:" + strconv.FormatInt(userID, 10) + ":sync_lock"
 }

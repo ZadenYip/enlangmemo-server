@@ -26,7 +26,7 @@ func (s *SessionStore) UpdatePullProgress(ctx context.Context, userID int64, ses
 	result, err := updatePullProgressScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
 		remainingPullEntityQueue,
 		syncCursorUSN,

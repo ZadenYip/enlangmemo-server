@@ -160,6 +160,7 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID int64, colI
 	result, err := h.sessionStore.CreateSession(ctx, hskSession)
 	switch {
 	case result == ss.CreateSessionAlreadyExists:
+		resp.SessionId = nil
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_LOCKED_BY_OTHER_CLIENT
 		return connect.NewResponse(resp), nil
 	case result == ss.CreateSessionCreated:

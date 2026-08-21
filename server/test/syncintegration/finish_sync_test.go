@@ -6,6 +6,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
@@ -50,7 +51,7 @@ func TestFinishSyncSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, finishResp.Msg.ServerFinishedAt)
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), syncSessionTestKey(userID)).Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), ss.RdbSessionKey(userID)).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 
@@ -96,7 +97,7 @@ func TestFinishSyncSessionIDMismatch(t *testing.T) {
 	require.Nil(t, resp)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), syncSessionTestKey(userID)).Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), ss.RdbSessionKey(userID)).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }
