@@ -48,10 +48,6 @@ func (h *SyncHandler) Handshake(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
-	if len(colInfo.CollectionID) > 0 && !bytes.Equal(colInfo.CollectionID, r.Msg.GetCollectionId()) {
-		h.logger.ErrorCtx(ctx, "handshake collection id mismatch", "userID", userID, "clientCollectionID", r.Msg.CollectionId, "serverCollectionID", colInfo.CollectionID)
-		return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
-	}
 
 	return h.determineHandshake(ctx, userID, colInfo, r.Msg)
 }
@@ -103,6 +99,13 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID int64, colI
 	case utils.Abs(req.ClientNow-time.Now().UnixMilli()) >= 5*60*1000:
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_TIME_SKEW_TOO_LARGE
 		return connect.NewResponse(resp), nil
+
+	// collectionID 不匹配，让客户端自行处理
+	case len(colInfo.CollectionID) > 0 && !bytes.Equal(colInfo.CollectionID, req.GetCollectionId()):
+		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_COLLECTION_ID_MISMATCH
+		resp.CollectionId = colInfo.CollectionID
+		return connect.NewResponse(resp), nil
+
 	}
 
 	// hskSession 根据情况设置 State、ExpectedBatchSeq、

@@ -287,12 +287,13 @@ func TestHandshakeSessionAlreadyExists(t *testing.T) {
 
 func TestHandshakeCollectionIDMismatch(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "userID", int64(10001))
+	sessionStore := newFakeSessionStore(t, ss.CreateSessionCreated)
 	handler := &SyncHandler{
 		hskStore: &fakeHandshakeStore{colInfo: CollectionInfoForHandshake{
 			CollectionID:  []byte("server-collection"),
 			SyncCursorUSN: 10,
 		}},
-		sessionStore: newFakeSessionStore(t, ss.CreateSessionCreated),
+		sessionStore: sessionStore,
 		logger:       logging.NewServerLog(),
 	}
 
@@ -303,6 +304,10 @@ func TestHandshakeCollectionIDMismatch(t *testing.T) {
 		DeviceId:            []byte("device-1"),
 	}))
 
-	require.Nil(t, resp)
-	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+	require.NoError(t, err)
+	require.Equal(t, syncv1.HandshakeStatus_HANDSHAKE_STATUS_COLLECTION_ID_MISMATCH, resp.Msg.Status)
+	require.Equal(t, int64(10), resp.Msg.ServerSyncCursorUsn)
+	require.Equal(t, []byte("server-collection"), resp.Msg.GetCollectionId())
+	require.Nil(t, resp.Msg.SessionId)
+	require.Zero(t, sessionStore.createCalls)
 }

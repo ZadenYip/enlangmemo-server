@@ -14,7 +14,8 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.43.0
-	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.3.1
+	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.3.3
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -80,6 +81,5 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250922171735-9219d122eba9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250922171735-9219d122eba9 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -119,6 +119,39 @@ func TestHandshakeLockedByOtherClient(t *testing.T) {
 	require.Nil(t, lockedResp.SessionId)
 }
 
+// TestHandshakeCollectionIDMismatchDoesNotCreateSession 测试 collection id 不匹配时直接返回状态，不创建同步 session。
+func TestHandshakeCollectionIDMismatchDoesNotCreateSession(t *testing.T) {
+	resetEnv(t)
+	userID := createSyncTestUser(t, "flowcolmis")
+	clientB := newSyncTestClient()
+	accessToken := newSyncTestAccessToken(t, userID)
+	srvColID := insertSyncTestCollection(t, userID, syncTestCollectionRow{
+		sqliteSchemaVersion: 15,
+		lastSyncTime:        1_800_000_000_000,
+		syncCursorUSN:       8,
+	})
+	clientColID := pullTestUUID(t)
+	deviceID := uuid.Must(uuid.NewV7())
+
+	mismatchResp := sendHandshake(t, clientB, accessToken, &syncv1.HandshakeRequest{
+		DeviceId:            deviceID[:],
+		DeviceName:          "integration-test-device-2",
+		CollectionId:        clientColID,
+		ClientSyncCursorUsn: 1,
+		ProtocolVersion:     1,
+		DbSchemaVersion:     1,
+		ClientNow:           time.Now().UnixMilli(),
+		HasLocalChanges:     true,
+	})
+
+	require.NotEqual(t, srvColID, clientColID)
+	require.Equal(t, syncv1.HandshakeStatus_HANDSHAKE_STATUS_COLLECTION_ID_MISMATCH, mismatchResp.Status)
+	require.Equal(t, int64(8), mismatchResp.ServerSyncCursorUsn)
+	require.Equal(t, srvColID, mismatchResp.GetCollectionId())
+	require.Nil(t, mismatchResp.SessionId)
+	requireSessionReleased(t, userID)
+}
+
 type fullFlowClient struct {
 	name          string
 	rpc           syncv1connect.SyncServiceClient
