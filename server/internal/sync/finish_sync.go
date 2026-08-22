@@ -13,9 +13,10 @@ import (
 func (h *SyncHandler) FinishSync(ctx context.Context,
 	req *connect.Request[syncv1.FinishSyncRequest],
 ) (*connect.Response[syncv1.FinishSyncResponse], error) {
-	userID := ctx.Value("userID").(string)
-	if userID == "" {
+	userID, err := userIDFromCtx(ctx)
+	if err != nil {
 		// 中间件已经处理了 token 验证，这里不应该出现空 userID
+		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in FinishSync", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 

@@ -14,7 +14,8 @@ import (
 func TestPushCollectionMissingPayload(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "missing-payload")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -42,7 +43,8 @@ func TestPushCollectionMissingPayload(t *testing.T) {
 func TestPushCollectionSuccess(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "push-collection")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -70,43 +72,23 @@ func TestPushCollectionSuccess(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int32(1), resp.Msg.BatchSeq)
-	require.Equal(t, handshakeResp.ServerSyncCursorUsn, resp.Msg.AssignedUsn)
+	require.Len(t, resp.Msg.Changes, 1)
+	assignedChange := resp.Msg.Changes[0]
+	require.Equal(t, collectionID, assignedChange.EntityId)
+	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_COLLECTION, assignedChange.EntityType)
+	require.Equal(t, syncv1.ChangeOp_CHANGE_OP_ASSIGN_USN, assignedChange.Op)
+	require.Equal(t, handshakeResp.ServerSyncCursorUsn, assignedChange.GetUsn())
+	assignedUSN := assignedChange.GetUsn()
 
-	var gotCollection struct {
-		USN                 int64
-		SQLiteSchemaVersion int32
-		SyncCursorUSN       int64
-		CreatedAt           int64
-		UpdatedAt           int64
-		ConfigSync          string
-		IsDeleted           bool
-	}
-	collectionUUID := uuid.MustParse(collectionID)
-	// TODO 未来写一个 helper 简化下面的查询和扫描操作
-	err = suite.Env.DB.QueryRowContext(
-		t.Context(),
-		`SELECT usn, sqlite_schema_version, sync_cursor_usn, created_at, updated_at, JSON_UNQUOTE(JSON_EXTRACT(config, '$.sync')), is_deleted
-		 FROM collections
-		 WHERE user_id = ? AND id = ?`,
-		userID,
-		collectionUUID[:],
-	).Scan(
-		&gotCollection.USN,
-		&gotCollection.SQLiteSchemaVersion,
-		&gotCollection.SyncCursorUSN,
-		&gotCollection.CreatedAt,
-		&gotCollection.UpdatedAt,
-		&gotCollection.ConfigSync,
-		&gotCollection.IsDeleted,
-	)
-	require.NoError(t, err)
-	require.Equal(t, resp.Msg.AssignedUsn, gotCollection.USN)
-	require.Equal(t, collection.SqliteSchemaVersion, gotCollection.SQLiteSchemaVersion)
-	require.Equal(t, resp.Msg.AssignedUsn+1, gotCollection.SyncCursorUSN)
-	require.Equal(t, collection.CreatedAt, gotCollection.CreatedAt)
-	require.Equal(t, collection.UpdatedAt, gotCollection.UpdatedAt)
-	require.Equal(t, "ok", gotCollection.ConfigSync)
-	require.False(t, gotCollection.IsDeleted)
+	gotCol := getSyncTestCollection(t, userID, collectionID)
+	require.Equal(t, collectionID, gotCol.ID)
+	require.Equal(t, assignedUSN, gotCol.USN)
+	require.Equal(t, collection.SqliteSchemaVersion, gotCol.SQLiteSchemaVersion)
+	require.Equal(t, assignedUSN+1, gotCol.SyncCursorUSN)
+	require.Equal(t, collection.CreatedAt, gotCol.CreatedAt)
+	require.Equal(t, collection.UpdatedAt, gotCol.UpdatedAt)
+	require.JSONEq(t, collection.ConfigJson, gotCol.ConfigJSON)
+	require.False(t, gotCol.IsDeleted)
 
 	var gotSyncUnit struct {
 		USN        int64
@@ -120,10 +102,10 @@ func TestPushCollectionSuccess(t *testing.T) {
 		 FROM sync_units
 		 WHERE user_id = ? AND entity_id = ?`,
 		userID,
-		collectionUUID[:],
+		collectionID,
 	).Scan(&gotSyncUnit.USN, &gotSyncUnit.EntityType, &gotSyncUnit.Op, &gotSyncUnit.UpdatedAt)
 	require.NoError(t, err)
-	require.Equal(t, resp.Msg.AssignedUsn, gotSyncUnit.USN)
+	require.Equal(t, assignedUSN, gotSyncUnit.USN)
 	require.Equal(t, int32(syncv1.EntityType_ENTITY_TYPE_COLLECTION), gotSyncUnit.EntityType)
 	require.Equal(t, int32(syncv1.ChangeOp_CHANGE_OP_UPSERT), gotSyncUnit.Op)
 	require.Equal(t, collection.UpdatedAt, gotSyncUnit.UpdatedAt)

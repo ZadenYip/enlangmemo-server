@@ -11,12 +11,13 @@ import (
 )
 
 type SSOStore interface {
-	Create(ctx context.Context, userID string) (string, error)
-	GetUserID(ctx context.Context, sessionID string) (string, error)
+	Create(ctx context.Context, userID int64) (string, error)
+	GetUserID(ctx context.Context, sessionID string) (int64, error)
 	Logout(ctx context.Context, sessionID string) (int64, error)
 }
 
 var ErrSessionIDCollision = errors.New("session id collision")
+var ErrInvalidUserID = errors.New("invalid user id")
 
 const (
 	ssoKeyPrefix           = "sso:"
@@ -31,7 +32,7 @@ type RedisSSOStore struct {
 	log logging.Logger
 }
 
-func (store *RedisSSOStore) Create(ctx context.Context, userID string) (string, error) {
+func (store *RedisSSOStore) Create(ctx context.Context, userID int64) (string, error) {
 	const createMaxAttempts = 3
 	for range createMaxAttempts {
 		sessionID, err := session.NewIDWithBase64RawURL(session.DefaultIDLen)
@@ -59,6 +60,11 @@ func (s *RedisSSOStore) Logout(ctx context.Context, sessionID string) (int64, er
 	return s.Rdb.Del(ctx, ssoKeyPrefix+sessionID).Result()
 }
 
-func (s *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
-	return s.Rdb.Get(ctx, ssoKeyPrefix+sessionID).Result()
+func (s *RedisSSOStore) GetUserID(ctx context.Context, sessionID string) (int64, error) {
+	userID, err := s.Rdb.Get(ctx, ssoKeyPrefix+sessionID).Int64()
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
 }

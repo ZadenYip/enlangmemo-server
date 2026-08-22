@@ -14,7 +14,10 @@ import (
 	"github.com/zadenyip/enlangmemo-server/internal/oauth"
 )
 
-const testUserID = "user-id"
+const (
+	testUserID    int64 = 10001
+	testUserIDStr       = "10001"
+)
 
 type mockAccessTokenStore struct {
 	mock.Mock
@@ -24,12 +27,12 @@ type mockUserProfileStore struct {
 	mock.Mock
 }
 
-func (s *mockAccessTokenStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
+func (s *mockAccessTokenStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error) {
 	args := s.Called(ctx, accessToken)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
 
-func (s *mockUserProfileStore) GetUserProfile(ctx context.Context, userID string) (auth.UserProfile, error) {
+func (s *mockUserProfileStore) GetUserProfile(ctx context.Context, userID int64) (auth.UserProfile, error) {
 	args := s.Called(ctx, userID)
 	return args.Get(0).(auth.UserProfile), args.Error(1)
 }
@@ -55,7 +58,7 @@ func TestMeReturnsUserProfile(t *testing.T) {
 		Once()
 	users.On("GetUserProfile", mock.Anything, testUserID).
 		Return(auth.UserProfile{
-			UserID:   testUserID,
+			UserID:   testUserIDStr,
 			LoginID:  "alice",
 			Nickname: "Alice",
 		}, nil).
@@ -66,7 +69,7 @@ func TestMeReturnsUserProfile(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rr.Code, "body = %s", rr.Body.String())
 	require.JSONEq(t, `{
-		"user_id": "user-id",
+		"user_id": "10001",
 		"login_id": "alice",
 		"nickname": "Alice"
 	}`, rr.Body.String())
@@ -116,7 +119,7 @@ func TestMeRejectsUnknownAccessToken(t *testing.T) {
 	store := new(mockAccessTokenStore)
 	users := new(mockUserProfileStore)
 	store.On("GetUserIDByAccessToken", mock.Anything, "missing-token").
-		Return("", oauth.ErrAccessTokenNotFound).
+		Return(int64(0), oauth.ErrAccessTokenNotFound).
 		Once()
 
 	rr := httptest.NewRecorder()
@@ -132,7 +135,7 @@ func TestMeStoreErrorReturnsInternal(t *testing.T) {
 	store := new(mockAccessTokenStore)
 	users := new(mockUserProfileStore)
 	store.On("GetUserIDByAccessToken", mock.Anything, "access-token").
-		Return("", errors.New("redis failed")).
+		Return(int64(0), errors.New("redis failed")).
 		Once()
 
 	rr := httptest.NewRecorder()

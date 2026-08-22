@@ -1,8 +1,6 @@
-package sync
+package sql
 
 import (
-	"context"
-	"database/sql"
 	_ "embed"
 )
 
@@ -86,34 +84,6 @@ var pushOpToSQL = [...]string{
 	PushOpUpsertSyncUnit: upsertSyncUnitSQL,
 }
 
-type StmtCache struct {
-	tx    *sql.Tx
-	cache []*sql.Stmt
-}
-
-func NewStmtCache(ctx context.Context, tx *sql.Tx) *StmtCache {
-	return &StmtCache{
-		tx:    tx,
-		cache: make([]*sql.Stmt, len(pushOpToSQL)),
-	}
-}
-
-func (s *StmtCache) Get(ctx context.Context, op PushOp) (*sql.Stmt, error) {
-	stmt := s.cache[op]
-	if stmt == nil {
-		stmt, err := s.tx.PrepareContext(ctx, pushOpToSQL[op])
-		if err != nil {
-			return nil, err
-		}
-		s.cache[op] = stmt
-	}
-	return s.cache[op], nil
-}
-
-func (s *StmtCache) Close() {
-	for _, stmt := range s.cache {
-		if stmt != nil {
-			stmt.Close()
-		}
-	}
+func UpdateCollectionSyncCursorSQL() string {
+	return updateCollectionSyncCursorSQL
 }

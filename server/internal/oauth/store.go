@@ -14,9 +14,9 @@ type OAStorer interface {
 	// 生成并存储授权码和会话信息
 	GenCodeStoreSession(ctx context.Context, authoInfo AuthorizationInfo) (string, error)
 	ConsumeCodeSession(ctx context.Context, authCode string) (OAuthSession, error)
-	GenAccessToken(ctx context.Context, clientID, userID string) (string, error)
+	GenAccessToken(ctx context.Context, clientID string, userID int64) (string, error)
 	// 根据访问令牌获取用户 ID
-	GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error)
+	GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error)
 	GetTokenInfoByAccessToken(ctx context.Context, accessToken string) (TokenInfo, error)
 
 	// RevokeAccessToken 撤销访问令牌

@@ -37,12 +37,12 @@ func TestGetUserProfileReturnsProfile(t *testing.T) {
 		_ = db.Close()
 	}()
 	mock.ExpectQuery("SELECT login_id, nickname FROM users").
-		WithArgs(uint64(10000)).
+		WithArgs(int64(10000)).
 		WillReturnRows(sqlmock.NewRows([]string{"login_id", "nickname"}).AddRow("alice", "Alice"))
 
 	store := NewMySQLUserStore(db)
 
-	profile, err := store.GetUserProfile(t.Context(), "10000")
+	profile, err := store.GetUserProfile(t.Context(), 10000)
 
 	require.NoError(t, err)
 	require.Equal(t, UserProfile{
@@ -50,23 +50,6 @@ func TestGetUserProfileReturnsProfile(t *testing.T) {
 		LoginID:  "alice",
 		Nickname: "Alice",
 	}, profile)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-// TestGetUserProfileRejectsInvalidUserID 测试非法 userID 不查询数据库并返回非法 userID 错误。
-func TestGetUserProfileRejectsInvalidUserID(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer func() {
-		_ = db.Close()
-	}()
-
-	store := NewMySQLUserStore(db)
-
-	profile, err := store.GetUserProfile(t.Context(), "not-a-number")
-
-	require.Empty(t, profile)
-	require.ErrorIs(t, err, ErrInvalidUserID)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

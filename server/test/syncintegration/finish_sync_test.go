@@ -6,6 +6,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
@@ -13,7 +14,8 @@ import (
 func TestFinishSyncSuccess(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "finish-success")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -39,7 +41,8 @@ func TestFinishSyncSuccess(t *testing.T) {
 		LastBatch: true,
 	}, accessToken))
 	require.NoError(t, err)
-	require.Equal(t, handshakeResp.ServerSyncCursorUsn, pushResp.Msg.AssignedUsn)
+	require.Len(t, pushResp.Msg.Changes, 1)
+	require.Equal(t, handshakeResp.ServerSyncCursorUsn, pushResp.Msg.Changes[0].GetUsn())
 
 	finishResp, err := client.FinishSync(t.Context(), newAuthorizedRequest(&syncv1.FinishSyncRequest{
 		SessionId: handshakeResp.GetSessionId(),
@@ -48,7 +51,7 @@ func TestFinishSyncSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, finishResp.Msg.ServerFinishedAt)
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), "sync:"+userID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), ss.RdbSessionKey(userID)).Result()
 	require.NoError(t, err)
 	require.Zero(t, exists)
 
@@ -79,7 +82,8 @@ func TestFinishSyncSessionNotFound(t *testing.T) {
 func TestFinishSyncSessionIDMismatch(t *testing.T) {
 	resetEnv(t)
 	userID := createSyncTestUser(t, "finish-mismatch")
-	collectionID := uuid.Must(uuid.NewV7()).String()
+	collectionUUID := uuid.Must(uuid.NewV7())
+	collectionID := collectionUUID[:]
 	client := newSyncTestClient()
 	accessToken := newSyncTestAccessToken(t, userID)
 	handshakeResp := startPushSync(t, client, accessToken, collectionID)
@@ -93,7 +97,7 @@ func TestFinishSyncSessionIDMismatch(t *testing.T) {
 	require.Nil(t, resp)
 	require.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
-	exists, err := suite.Env.RDB.Exists(t.Context(), "sync:"+userID+":sync_lock").Result()
+	exists, err := suite.Env.RDB.Exists(t.Context(), ss.RdbSessionKey(userID)).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(1), exists)
 }

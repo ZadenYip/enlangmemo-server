@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"time"
 
 	"connectrpc.com/connect"
@@ -15,10 +17,10 @@ func (h *SyncHandler) Handshake(
 	ctx context.Context,
 	r *connect.Request[syncv1.HandshakeRequest],
 ) (*connect.Response[syncv1.HandshakeResponse], error) {
-	userID := ctx.Value("userID").(string)
-	if userID == "" {
+	userID, err := userIDFromCtx(ctx)
+	if err != nil {
 		// 不应该出现这个状况，因为 AuthInterceptor 已经放入 userID 进 context 了
-		h.logger.ErrorCtx(ctx, "userID is empty after AuthInterceptor in Handshake")
+		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Handshake", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
 
@@ -46,7 +48,7 @@ func (h *SyncHandler) Handshake(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
-	if colInfo.CollectionID != "" && colInfo.CollectionID != r.Msg.CollectionId {
+	if len(colInfo.CollectionID) > 0 && !bytes.Equal(colInfo.CollectionID, r.Msg.GetCollectionId()) {
 		h.logger.ErrorCtx(ctx, "handshake collection id mismatch", "userID", userID, "clientCollectionID", r.Msg.CollectionId, "serverCollectionID", colInfo.CollectionID)
 		return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
 	}
@@ -60,7 +62,7 @@ func (h *SyncHandler) Handshake(
 // 这里的 SessionID 是新生成的
 func (h *SyncHandler) hskSession(ctx context.Context,
 	req *syncv1.HandshakeRequest,
-	userID string,
+	userID int64,
 ) (ss.SyncSession, error) {
 	sessionID, err := srvSession.NewID(16)
 	if err != nil {
@@ -75,12 +77,12 @@ func (h *SyncHandler) hskSession(ctx context.Context,
 		SessionID:                   sessionID,
 		CliSyncCursorUSNAtHandshake: req.ClientSyncCursorUsn,
 		SrvSyncCursorUSNAtHandshake: 0,
-		DeviceID:                    req.DeviceId,
+		DeviceID:                    hex.EncodeToString(req.GetDeviceId()),
 	}, nil
 }
 
 // 根据客户端集合状态和服务器集合状态，判断握手的状态
-func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, colInfo CollectionInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
+func (h *SyncHandler) determineHandshake(ctx context.Context, userID int64, colInfo CollectionInfoForHandshake, req *syncv1.HandshakeRequest) (*connect.Response[syncv1.HandshakeResponse], error) {
 
 	var resp = &syncv1.HandshakeResponse{
 		SessionId:           nil,
@@ -135,6 +137,12 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 		hskSession.State = ss.SyncSessionStatePulling
 		hskSession.ExpectedBatchSeq = 1
 		hskSession.SyncCursorUSN = req.ClientSyncCursorUsn
+		entityQueue, err := h.hskStore.GetPullEntityQueueForHandshake(ctx, userID, req.ClientSyncCursorUsn, colInfo.SyncCursorUSN)
+		if err != nil {
+			h.logger.ErrorCtx(ctx, "failed to get pull entity queue for handshake", "userID", userID, "error", err)
+			return nil, connect.NewError(connect.CodeInternal, nil)
+		}
+		hskSession.PullEntityQueue = entityQueue
 
 	// 需要上传客户端所有数据
 	case req.ClientSyncCursorUsn > colInfo.SyncCursorUSN:
@@ -152,6 +160,7 @@ func (h *SyncHandler) determineHandshake(ctx context.Context, userID string, col
 	result, err := h.sessionStore.CreateSession(ctx, hskSession)
 	switch {
 	case result == ss.CreateSessionAlreadyExists:
+		resp.SessionId = nil
 		resp.Status = syncv1.HandshakeStatus_HANDSHAKE_STATUS_LOCKED_BY_OTHER_CLIENT
 		return connect.NewResponse(resp), nil
 	case result == ss.CreateSessionCreated:

@@ -17,7 +17,7 @@ type OAuthSession struct {
 	ClientID      string `json:"client_id"`
 	CodeChallenge string `json:"code_challenge"`
 
-	UserID string `json:"user_id"`
+	UserID int64 `json:"user_id,string"`
 }
 
 const oaSessionPrefix = "oauth:session:"

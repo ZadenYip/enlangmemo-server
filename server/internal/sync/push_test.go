@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
 	ss "github.com/zadenyip/enlangmemo-server/internal/sync/session"
@@ -17,33 +18,47 @@ type fakePushSessionStore struct {
 	claimResultSet bool
 	claimErr       error
 	assignedUSN    int64
+	changeCount    int
 }
 
 func (s *fakePushSessionStore) CreateSession(ctx context.Context, session ss.SyncSession) (ss.CreateSessionResult, error) {
 	panic("CreateSession should not be called")
 }
 
-func (s *fakePushSessionStore) GetSession(ctx context.Context, userID string) (ss.SyncSession, error) {
+func (s *fakePushSessionStore) GetSession(ctx context.Context, userID int64) (ss.SyncSession, error) {
 	panic("GetSession should not be called")
 }
 
-func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID, sessionID string, currentBatchSeq int64) (ss.ClaimPushBatchResult, error) {
+func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32, changeCount int) (ss.ClaimPushBatchResult, error) {
+	s.changeCount = changeCount
 	if !s.claimResultSet && s.claimErr == nil {
-		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedUSN: s.assignedUSN}, nil
+		return ss.ClaimPushBatchResult{LuaResult: ss.ClaimPushBatchLuaOK, AssignedStartUSN: s.assignedUSN}, nil
 	}
-	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedUSN: s.assignedUSN}, s.claimErr
+	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedStartUSN: s.assignedUSN}, s.claimErr
 }
 
-func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
+func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
 	panic("MarkPushFinished should not be called")
 }
 
-func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID, sessionID string, finishTime int64) error {
+func (s *fakePushSessionStore) ClaimPullBatch(ctx context.Context, userID int64, sessionID string, currentBatchSeq int32) (ss.ClaimPullBatchResult, error) {
+	panic("ClaimPullBatch should not be called")
+}
+
+func (s *fakePushSessionStore) UpdatePullProgress(ctx context.Context, userID int64, sessionID string, remainingPullEntityQueue string, syncCursorUSN int64) error {
+	panic("UpdatePullProgress should not be called")
+}
+
+func (s *fakePushSessionStore) MarkPullFinished(ctx context.Context, userID int64, sessionID string) error {
+	panic("MarkPullFinished should not be called")
+}
+
+func (s *fakePushSessionStore) FinishSync(ctx context.Context, userID int64, sessionID string, finishTime int64) error {
 	panic("FinishSync should not be called")
 }
 
 func TestClaimPushBatch(t *testing.T) {
-	const wantAssignedUSN int64 = 13
+	const wantAssignedStartUSN int64 = 13
 
 	tests := []struct {
 		name        string
@@ -59,6 +74,10 @@ func TestClaimPushBatch(t *testing.T) {
 			req: &syncv1.PushRequest{
 				SessionId: "session-1",
 				BatchSeq:  2,
+				Changes: []*syncv1.SyncChange{
+					{Usn: -1},
+					{Usn: -1},
+				},
 			},
 		},
 		{
@@ -107,10 +126,11 @@ func TestClaimPushBatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			userID := "user-1"
+			userID := int64(10001)
 			ctx := context.WithValue(context.Background(), "userID", userID)
+			sessionStore := &fakePushSessionStore{claimResult: tt.claimResult, claimResultSet: tt.claimResult != 0, claimErr: tt.claimErr, assignedUSN: wantAssignedStartUSN}
 			handler := &SyncHandler{
-				sessionStore: &fakePushSessionStore{claimResult: tt.claimResult, claimResultSet: tt.claimResult != 0, claimErr: tt.claimErr, assignedUSN: wantAssignedUSN},
+				sessionStore: sessionStore,
 				logger:       logging.NewServerLog(),
 			}
 
@@ -122,14 +142,16 @@ func TestClaimPushBatch(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, ss.ClaimPushBatchLuaOK, result.LuaResult)
-			require.Equal(t, wantAssignedUSN, result.AssignedUSN)
+			require.Equal(t, wantAssignedStartUSN, result.AssignedStartUSN)
+			require.Equal(t, len(tt.req.GetChanges()), sessionStore.changeCount)
 		})
 	}
 }
 
 func TestInvalidArgumentChange(t *testing.T) {
 	deletedAt := int64(1_700_000_000_000)
-	validDeckID := "018f3f3f-8f3f-7f3f-bf3f-8f3f8f3f8f3f"
+	validDeckUUID := uuid.Must(uuid.NewV7())
+	validDeckID := validDeckUUID[:]
 	validDeckUpsert := func() *syncv1.SyncChange {
 		return &syncv1.SyncChange{
 			EntityId:   validDeckID,
@@ -178,14 +200,6 @@ func TestInvalidArgumentChange(t *testing.T) {
 			change: func() *syncv1.SyncChange {
 				change := validDeckUpsert()
 				change.EntityType = syncv1.EntityType_ENTITY_TYPE_UNSPECIFIED
-				return change
-			}(),
-		},
-		{
-			name: "entity_id must be valid uuid",
-			change: func() *syncv1.SyncChange {
-				change := validDeckDelete()
-				change.EntityId = "not-a-uuid"
 				return change
 			}(),
 		},

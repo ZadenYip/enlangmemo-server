@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
@@ -49,8 +51,13 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 
 	syncSessionStore := ss.NewSessionStore(storeDeps.DB, storeDeps.Rdb, logger)
 	pshStore := sync.NewPushChangeStore(storeDeps.DB, logger)
+	pulStore, err := sync.NewPullChangeStore(context.Background(), storeDeps.DB, logger)
+	if err != nil {
+		panic(fmt.Errorf("failed to create PullChangeStore: %w", err))
+	}
+
 	hskStore := sync.NewHandshakeStore(storeDeps.DB, logger)
-	syncHandler := sync.NewSyncHandler(oaStore, pshStore, hskStore, syncSessionStore)
+	syncHandler := sync.NewSyncHandler(oaStore, pshStore, pulStore, hskStore, syncSessionStore)
 
 	return &Server{
 		log:               logger,
@@ -59,6 +66,10 @@ func New(storeDeps StoreDeps, logger logging.Logger) *Server {
 		enlangmemoHandler: enlangmemoHandler,
 		syncHandler:       syncHandler,
 	}
+}
+
+func (srv *Server) GracefulShutdown() error {
+	return srv.syncHandler.GracefulShutdown()
 }
 
 // register routes

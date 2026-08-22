@@ -1,7 +1,6 @@
 package syncintegration
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -22,13 +21,11 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	require.Equal(t, int64(1), info.SyncCursorUSN)
 	require.Zero(t, info.SQLiteSchemaVersion)
 	require.Zero(t, info.LastSyncTime)
-	require.False(t, info.IsDeleted)
 
 	collectionID := insertSyncTestCollection(t, userID, syncTestCollectionRow{
 		sqliteSchemaVersion: 15,
 		lastSyncTime:        1_800_000_000_000,
 		syncCursorUSN:       88,
-		isDeleted:           true,
 	})
 
 	info, err = store.GetColInfoForHandshake(ctx, userID)
@@ -37,18 +34,16 @@ func TestHandshakeStoreGetCollectionInfoForHandshake(t *testing.T) {
 	require.Equal(t, int32(15), info.SQLiteSchemaVersion)
 	require.Equal(t, int64(1_800_000_000_000), info.LastSyncTime)
 	require.Equal(t, int64(88), info.SyncCursorUSN)
-	require.True(t, info.IsDeleted)
 }
 
 type syncTestCollectionRow struct {
 	sqliteSchemaVersion int32
 	lastSyncTime        int64
 	syncCursorUSN       int64
-	isDeleted           bool
 }
 
 // loginID 长度不能超过 16 字符
-func createSyncTestUser(t *testing.T, loginID string) string {
+func createSyncTestUser(t *testing.T, loginID string) int64 {
 	t.Helper()
 	result, err := suite.Env.DB.ExecContext(
 		t.Context(),
@@ -61,10 +56,10 @@ func createSyncTestUser(t *testing.T, loginID string) string {
 
 	id, err := result.LastInsertId()
 	require.NoError(t, err)
-	return strconv.FormatInt(id, 10)
+	return id
 }
 
-func insertSyncTestCollection(t *testing.T, userID string, row syncTestCollectionRow) string {
+func insertSyncTestCollection(t *testing.T, userID int64, row syncTestCollectionRow) []byte {
 	t.Helper()
 	collectionUUID, err := uuid.NewV7()
 	require.NoError(t, err)
@@ -74,8 +69,8 @@ func insertSyncTestCollection(t *testing.T, userID string, row syncTestCollectio
 		t.Context(),
 		`INSERT INTO collections (
 			user_id, id, sqlite_schema_version, last_sync_time, sync_cursor_usn,
-			usn, created_at, updated_at, config, is_deleted
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT(), ?)`,
+			usn, created_at, updated_at, config
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT())`,
 		userID,
 		collectionUUID[:],
 		row.sqliteSchemaVersion,
@@ -84,9 +79,8 @@ func insertSyncTestCollection(t *testing.T, userID string, row syncTestCollectio
 		row.syncCursorUSN,
 		now,
 		now,
-		row.isDeleted,
 	)
 	require.NoError(t, err)
 
-	return collectionUUID.String()
+	return collectionUUID[:]
 }

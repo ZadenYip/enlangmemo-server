@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
 
 /* 用户表 */
 CREATE TABLE IF NOT EXISTS users (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     login_id VARCHAR(16) NOT NULL UNIQUE,
     nickname VARCHAR(16) NOT NULL,
     -- 密码本身 16 字符以内，但以 argon2id hash 方式存
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 /* EnLangMemo 同步表 */
 
 CREATE TABLE IF NOT EXISTS sync_units (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     usn BIGINT NOT NULL,
 
     entity_id BINARY(16) NOT NULL,
@@ -30,15 +30,15 @@ CREATE TABLE IF NOT EXISTS sync_units (
     updated_at BIGINT NOT NULL,
 
     PRIMARY KEY (user_id, entity_id),
-    -- 拉取同步单元时，按 user_id + usn 排序，保证拉取顺序正确
-    INDEX ix_sync_units_pull (user_id ASC, usn ASC),
+    -- 用来确定有哪些实体类型需要拉取数据的辅助索引
+    INDEX ix_sync_units_pull (user_id ASC, entity_type ASC, usn ASC),
     -- 用于运维清理非常早之前就删除的同步单元
     INDEX ix_sync_units_retention (op, updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 同步单元索引表';
 
 -- 一个用户只能有一个集合
 CREATE TABLE IF NOT EXISTS collections (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     -- UUIDv7
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
@@ -51,13 +51,15 @@ CREATE TABLE IF NOT EXISTS collections (
     updated_at BIGINT NOT NULL,
     config JSON NOT NULL,
 
+    -- 应用层不写入该字段；保留未来删除数据
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id)
+    PRIMARY KEY (user_id),
+    INDEX ix_collections_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 集合表';
 
 CREATE TABLE IF NOT EXISTS decks (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     -- UUIDv7
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
@@ -73,11 +75,12 @@ CREATE TABLE IF NOT EXISTS decks (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_decks_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 牌组表';
 
 CREATE TABLE IF NOT EXISTS note_types (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
 
@@ -90,11 +93,12 @@ CREATE TABLE IF NOT EXISTS note_types (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_note_types_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 笔记模板表';
 
 CREATE TABLE IF NOT EXISTS notes (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
 
@@ -103,18 +107,17 @@ CREATE TABLE IF NOT EXISTS notes (
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
-    sense_id INT UNSIGNED NULL,
-    sort_field TEXT NULL,
-    search_fields TEXT NULL,
+    sense_id INT NULL,
     fields JSON NOT NULL,
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_notes_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 笔记表';
 
 CREATE TABLE IF NOT EXISTS processing_notes (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
 
@@ -123,16 +126,17 @@ CREATE TABLE IF NOT EXISTS processing_notes (
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
 
-    sense_id INT UNSIGNED NULL,
+    sense_id INT NULL,
     fields JSON NOT NULL,
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_processing_notes_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 待加工笔记表';
 
 CREATE TABLE IF NOT EXISTS cards (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
 
@@ -155,11 +159,12 @@ CREATE TABLE IF NOT EXISTS cards (
 
     is_deleted TINYINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_cards_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 卡片表';
 
 CREATE TABLE IF NOT EXISTS review_logs (
-    user_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT NOT NULL,
     id BINARY(16) NOT NULL,
     usn BIGINT NOT NULL,
 
@@ -174,7 +179,8 @@ CREATE TABLE IF NOT EXISTS review_logs (
 
     learning_steps INT NOT NULL,
     state TINYINT NOT NULL,
-    duration INT NOT NULL,
+    duration TINYINT NOT NULL,
 
-    PRIMARY KEY (user_id, id)
+    PRIMARY KEY (user_id, id),
+    INDEX ix_review_logs_usn (user_id ASC, usn ASC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='EnLangMemo 复习日志表';

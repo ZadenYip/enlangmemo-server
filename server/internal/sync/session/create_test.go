@@ -10,13 +10,13 @@ import (
 
 // TestCreateSessionRedisError 测试 CreateSession 在 redis 连接错误时返回错误
 func TestCreateSessionRedisError(t *testing.T) {
-	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"})
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:0", DialerRetries: 1})
 	t.Cleanup(func() {
 		require.NoError(t, rdb.Close())
 	})
 	store := NewSessionStore(nil, rdb, logging.NewServerLog())
 	session := SyncSession{
-		UserID:                      "10001",
+		UserID:                      10001,
 		State:                       SyncSessionStatePushing,
 		ExpectedBatchSeq:            1,
 		SyncCursorUSN:               12,

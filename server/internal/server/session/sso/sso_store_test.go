@@ -14,7 +14,7 @@ func TestRedisSSOStoreCreateSetNXError(t *testing.T) {
 	}()
 	store := &RedisSSOStore{Rdb: rdb}
 
-	sessionID, err := store.Create(t.Context(), "user-id")
+	sessionID, err := store.Create(t.Context(), 10001)
 
 	require.Empty(t, sessionID)
 	require.Error(t, err)

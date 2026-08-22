@@ -20,7 +20,8 @@ const (
 	testState         = "state-value"
 	testCodeChallenge = "0123456789012345678901234567890123456789012"
 	testSessionID     = "session-id"
-	testUserID        = "user-id"
+	testUserID        = int64(10001)
+	testUserIDStr     = "10001"
 )
 
 type mockOAStore struct {
@@ -46,14 +47,14 @@ func (s *mockOAStore) ConsumeCodeSession(ctx context.Context, authCode string) (
 	return args.Get(0).(OAuthSession), args.Error(1)
 }
 
-func (s *mockOAStore) GenAccessToken(ctx context.Context, clientID, userID string) (string, error) {
+func (s *mockOAStore) GenAccessToken(ctx context.Context, clientID string, userID int64) (string, error) {
 	args := s.Called(ctx, clientID, userID)
 	return args.String(0), args.Error(1)
 }
 
-func (s *mockOAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (string, error) {
+func (s *mockOAStore) GetUserIDByAccessToken(ctx context.Context, accessToken string) (int64, error) {
 	args := s.Called(ctx, accessToken)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (s *mockOAStore) GetTokenInfoByAccessToken(ctx context.Context, accessToken string) (TokenInfo, error) {
@@ -66,14 +67,14 @@ func (s *mockOAStore) RevokeAccessToken(ctx context.Context, accessToken, client
 	return args.Error(0)
 }
 
-func (s *mockSSOStore) Create(ctx context.Context, userID string) (string, error) {
+func (s *mockSSOStore) Create(ctx context.Context, userID int64) (string, error) {
 	args := s.Called(ctx, userID)
 	return args.String(0), args.Error(1)
 }
 
-func (s *mockSSOStore) GetUserID(ctx context.Context, sessionID string) (string, error) {
+func (s *mockSSOStore) GetUserID(ctx context.Context, sessionID string) (int64, error) {
 	args := s.Called(ctx, sessionID)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (s *mockSSOStore) Logout(ctx context.Context, sessionID string) (int64, error) {

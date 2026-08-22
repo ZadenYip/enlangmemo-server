@@ -22,16 +22,16 @@ const (
 var markPushFinishedLua string
 var markPushFinishedScript = redis.NewScript(markPushFinishedLua)
 
-func (s *SessionStore) MarkPushFinished(ctx context.Context, userID, sessionID string) error {
+func (s *SessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
 	result, err := markPushFinishedScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(userID)},
+		[]string{RdbSessionKey(userID)},
 		sessionID,
-		int64(syncSessionTTLSecs),
+		syncSessionTTLSecs,
 	).Int64()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to mark push finished", "userID", userID, "sessionID", sessionID, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to run mark push finished script", "userID", userID, "sessionID", sessionID, "error", err)
 		return err
 	}
 

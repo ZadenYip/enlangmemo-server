@@ -66,7 +66,7 @@ type appMeUser struct {
 func userByLoginID(t *testing.T, loginID string) appMeUser {
 	t.Helper()
 
-	var userID uint64
+	var userID int64
 	var actualLoginID string
 	var nickname string
 	err := suite.Env.DB.QueryRowContext(t.Context(), `SELECT id, login_id, nickname FROM users WHERE login_id = ?`, loginID).
@@ -74,7 +74,7 @@ func userByLoginID(t *testing.T, loginID string) appMeUser {
 	require.NoError(t, err)
 
 	return appMeUser{
-		UserID:   strconv.FormatUint(userID, 10),
+		UserID:   strconv.FormatInt(userID, 10),
 		LoginID:  actualLoginID,
 		Nickname: nickname,
 	}

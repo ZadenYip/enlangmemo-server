@@ -25,7 +25,7 @@ func (s *SessionStore) CreateSession(ctx context.Context, session SyncSession) (
 	result, err := createSessionScript.Run(
 		ctx,
 		s.rdb,
-		[]string{rdbSessionKey(session.UserID)},
+		[]string{RdbSessionKey(session.UserID)},
 		sessionScriptArgs(session)...,
 	).Int64()
 
@@ -56,6 +56,7 @@ func sessionScriptArgs(session SyncSession) []any {
 		session.CliSyncCursorUSNAtHandshake,
 		session.SrvSyncCursorUSNAtHandshake,
 		session.DeviceID,
-		int64(syncSessionTTLSecs),
+		session.PullEntityQueue,
+		syncSessionTTLSecs,
 	}
 }

@@ -7,13 +7,14 @@ import (
 	"fmt"
 
 	"github.com/zadenyip/enlangmemo-server/internal/logging"
+	syncsql "github.com/zadenyip/enlangmemo-server/internal/sync/sql"
 	syncv1 "github.com/zadenyip/enlangmemo-sync-api/packages/go/gen/enlangmemo/sync/v1"
 )
 
 var errInvalidPushChange = errors.New("invalid push change")
 
 type PushChangeStorer interface {
-	ApplyPushChanges(ctx context.Context, userID string, assignedUSN int64, changes []*syncv1.SyncChange) error
+	ApplyPushChanges(ctx context.Context, userID int64, assignedStartUSN int64, changes []*syncv1.SyncChange) ([]*syncv1.SyncChange, error)
 }
 
 type PushChangeStore struct {
@@ -28,62 +29,73 @@ func NewPushChangeStore(db *sql.DB, logger logging.Logger) *PushChangeStore {
 	}
 }
 
-func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID string, assignedUSN int64, changes []*syncv1.SyncChange) error {
+func (s *PushChangeStore) ApplyPushChanges(ctx context.Context, userID int64, assignedStartUSN int64, changes []*syncv1.SyncChange) ([]*syncv1.SyncChange, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to begin transaction in ApplyPushChanges", "error", err)
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
-	stmtCache := NewStmtCache(ctx, tx)
+	stmtCache := syncsql.NewPushStmtCache(ctx, tx)
 	defer stmtCache.Close()
-	info := applyChangeInfo{
-		userID:      userID,
-		assignedUSN: assignedUSN,
-	}
 
-	for _, change := range changes {
-		if err := s.applyChange(ctx, info, change, stmtCache); err != nil {
-			return err
+	assignedChanges := make([]*syncv1.SyncChange, 0, len(changes))
+	for i, change := range changes {
+		info := applyChangeInfo{
+			userID:      userID,
+			assignedUSN: assignedStartUSN + int64(i),
 		}
+		if err := s.applyChange(ctx, info, change, stmtCache); err != nil {
+			return nil, err
+		}
+		assignedChanges = append(assignedChanges, assignedUSNChange(change, info.assignedUSN))
 	}
-	if err := s.updateColSyncCursor(ctx, tx, info); err != nil {
-		return err
+	if err := s.updateColSyncCursor(ctx, tx, userID, assignedStartUSN+int64(len(changes))); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		s.logger.ErrorCtx(ctx, "failed to commit transaction in ApplyPushChanges", "error", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	return assignedChanges, nil
+}
+
+func assignedUSNChange(change *syncv1.SyncChange, assignedUSN int64) *syncv1.SyncChange {
+	return &syncv1.SyncChange{
+		EntityId:   change.GetEntityId(),
+		EntityType: change.GetEntityType(),
+		Op:         syncv1.ChangeOp_CHANGE_OP_ASSIGN_USN,
+		Usn:        assignedUSN,
+	}
 }
 
 type applyChangeInfo struct {
-	userID      string
+	userID      int64
 	assignedUSN int64
 }
 
-func (s *PushChangeStore) updateColSyncCursor(ctx context.Context, tx *sql.Tx, info applyChangeInfo) error {
-	result, err := tx.ExecContext(ctx, updateCollectionSyncCursorSQL, info.assignedUSN+1, info.userID)
+func (s *PushChangeStore) updateColSyncCursor(ctx context.Context, tx *sql.Tx, userID int64, nextSyncCursorUSN int64) error {
+	result, err := tx.ExecContext(ctx, syncsql.UpdateCollectionSyncCursorSQL(), nextSyncCursorUSN, userID)
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to update collection sync cursor", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to update collection sync cursor", "userID", userID, "syncCursorUSN", nextSyncCursorUSN, "error", err)
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		s.logger.ErrorCtx(ctx, "failed to get rows affected after updating collection sync cursor", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1, "error", err)
+		s.logger.ErrorCtx(ctx, "failed to get rows affected after updating collection sync cursor", "userID", userID, "syncCursorUSN", nextSyncCursorUSN, "error", err)
 		return err
 	}
 	if rowsAffected == 0 {
-		s.logger.ErrorCtx(ctx, "collection sync cursor update affected no rows", "userID", info.userID, "syncCursorUSN", info.assignedUSN+1)
+		s.logger.ErrorCtx(ctx, "collection sync cursor update affected no rows", "userID", userID, "syncCursorUSN", nextSyncCursorUSN)
 		return errors.New("collection sync cursor update affected no rows")
 	}
 
 	return nil
 }
 
-func (s *PushChangeStore) applyChange(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyChange(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	if change == nil {
 		return fmt.Errorf("%w: nil sync change", errInvalidPushChange)
 	}
@@ -102,7 +114,7 @@ func (s *PushChangeStore) applyChange(ctx context.Context, info applyChangeInfo,
 	}
 }
 
-func (s *PushChangeStore) applyUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	switch change.GetEntityType() {
 	case syncv1.EntityType_ENTITY_TYPE_REVIEW_LOG:
 		return s.applyReviewLogUpsert(ctx, info, change, stmtCache)
@@ -124,27 +136,23 @@ func (s *PushChangeStore) applyUpsert(ctx context.Context, info applyChangeInfo,
 	}
 }
 
-func (s *PushChangeStore) applyDelete(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
-	entityID, err := uuidBytes(change.GetEntityId())
-	if err != nil {
-		s.logger.ErrorCtx(ctx, "invalid entity id in applyDelete", "entity_id", change.GetEntityId(), "error", err)
-		return fmt.Errorf("%w: invalid entity id: %w", errInvalidPushChange, err)
-	}
+func (s *PushChangeStore) applyDelete(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
+	entityID := change.GetEntityId()
 
 	switch change.GetEntityType() {
 	case syncv1.EntityType_ENTITY_TYPE_REVIEW_LOG:
 		s.logger.ErrorCtx(ctx, "review_log delete is not supported", "entity_id", change.GetEntityId())
 		return fmt.Errorf("%w: review_log delete is not supported", errInvalidPushChange)
 	case syncv1.EntityType_ENTITY_TYPE_CARD:
-		return s.applySoftDelete(ctx, info, stmtCache, PushOpDeleteCard, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteCard, entityID, change)
 	case syncv1.EntityType_ENTITY_TYPE_NOTE:
-		return s.applySoftDelete(ctx, info, stmtCache, PushOpDeleteNote, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNote, entityID, change)
 	case syncv1.EntityType_ENTITY_TYPE_PROCESSING_NOTE:
-		return s.applySoftDelete(ctx, info, stmtCache, PushOpDeleteProcessingNote, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteProcessingNote, entityID, change)
 	case syncv1.EntityType_ENTITY_TYPE_NOTE_TYPE:
-		return s.applySoftDelete(ctx, info, stmtCache, PushOpDeleteNoteType, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNoteType, entityID, change)
 	case syncv1.EntityType_ENTITY_TYPE_DECK:
-		return s.applySoftDelete(ctx, info, stmtCache, PushOpDeleteDeck, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteDeck, entityID, change)
 	case syncv1.EntityType_ENTITY_TYPE_COLLECTION:
 		s.logger.ErrorCtx(ctx, "collection delete is not supported", "entity_id", change.GetEntityId())
 		return fmt.Errorf("%w: collection delete is not supported", errInvalidPushChange)
@@ -154,31 +162,22 @@ func (s *PushChangeStore) applyDelete(ctx context.Context, info applyChangeInfo,
 	}
 }
 
-func (s *PushChangeStore) applyReviewLogUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyReviewLogUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetReviewLog()
 	if payload == nil {
 		return fmt.Errorf("%w: missing review_log payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		s.logger.ErrorCtx(ctx, "invalid review_log id", "id", entityID, "error", err)
-		return fmt.Errorf("%w: invalid review_log id: %w", errInvalidPushChange, err)
-	}
-	cardID, err := uuidBytes(payload.CardId)
-	if err != nil {
-		s.logger.ErrorCtx(ctx, "invalid review_log card id", "card_id", payload.CardId, "error", err)
-		return fmt.Errorf("%w: invalid review_log card id: %w", errInvalidPushChange, err)
-	}
+	cardID := payload.GetCardId()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertReviewLog)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertReviewLog)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to get upsert review_log statement", "error", err)
 		return err
 	}
 
-	_, err = stmt.ExecContext(ctx, info.userID, entityUUID,
+	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		cardID, info.assignedUSN,
 		payload.ReviewTime, payload.ScheduledDays,
 		payload.Rating, payload.Difficulty, payload.Stability,
@@ -189,34 +188,24 @@ func (s *PushChangeStore) applyReviewLogUpsert(ctx context.Context, info applyCh
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.ReviewTime)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.ReviewTime)
 }
 
-func (s *PushChangeStore) applyCardUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyCardUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetCard()
 	if payload == nil {
 		return fmt.Errorf("%w: missing card payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		return fmt.Errorf("%w: invalid card id: %w", errInvalidPushChange, err)
-	}
-	noteID, err := uuidBytes(payload.NoteId)
-	if err != nil {
-		return fmt.Errorf("%w: invalid card note id: %w", errInvalidPushChange, err)
-	}
-	deckID, err := uuidBytes(payload.DeckId)
-	if err != nil {
-		return fmt.Errorf("%w: invalid card deck id: %w", errInvalidPushChange, err)
-	}
+	noteID := payload.GetNoteId()
+	deckID := payload.GetDeckId()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertCard)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertCard)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityUUID, noteID, deckID, info.assignedUSN,
+	_, err = stmt.ExecContext(ctx, info.userID, entityID, noteID, deckID, info.assignedUSN,
 		payload.UpdatedAt, payload.Difficulty, payload.Stability, payload.ScheduledDays,
 		payload.Due, nullableInt64(payload.LastReview), payload.Lapses, payload.LearningSteps,
 		payload.Repetitions, payload.State, payload.Queue)
@@ -225,84 +214,65 @@ func (s *PushChangeStore) applyCardUpsert(ctx context.Context, info applyChangeI
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applyNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetNote()
 	if payload == nil {
 		return fmt.Errorf("%w: missing note payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		return fmt.Errorf("%w: invalid note id: %w", errInvalidPushChange, err)
-	}
-	noteTypeID, err := uuidBytes(payload.NoteTypeId)
-	if err != nil {
-		return fmt.Errorf("%w: invalid note note_type id: %w", errInvalidPushChange, err)
-	}
+	noteTypeID := payload.GetNoteTypeId()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertNote)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertNote)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityUUID, noteTypeID,
+	_, err = stmt.ExecContext(ctx, info.userID, entityID, noteTypeID,
 		info.assignedUSN,
-		payload.CreatedAt, payload.UpdatedAt, nullableInt32(payload.SenseId), nullableString(payload.SortField),
-		nullableString(payload.SearchFields), payload.FieldsJson)
+		payload.CreatedAt, payload.UpdatedAt, nullableInt32(payload.SenseId), payload.FieldsJson)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert note", "error", err)
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applyProcessingNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyProcessingNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetProcessingNote()
 	if payload == nil {
 		return fmt.Errorf("%w: missing processing_note payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		return fmt.Errorf("%w: invalid processing_note id: %w", errInvalidPushChange, err)
-	}
-	noteTypeID, err := uuidBytes(payload.NoteTypeId)
-	if err != nil {
-		return fmt.Errorf("%w: invalid processing_note note_type id: %w", errInvalidPushChange, err)
-	}
+	noteTypeID := payload.GetNoteTypeId()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertProcessingNote)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertProcessingNote)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityUUID, noteTypeID, info.assignedUSN,
+	_, err = stmt.ExecContext(ctx, info.userID, entityID, noteTypeID, info.assignedUSN,
 		payload.CreatedAt, payload.UpdatedAt, nullableInt32(payload.SenseId), payload.FieldsJson)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert processing_note", "error", err)
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetNoteType()
 	if payload == nil {
 		return fmt.Errorf("%w: missing note_type payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		return fmt.Errorf("%w: invalid note_type id: %w", errInvalidPushChange, err)
-	}
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertNoteType)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertNoteType)
 	if err != nil {
 		return err
 	}
@@ -314,26 +284,22 @@ func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyCha
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetDeck()
 	if payload == nil {
 		return fmt.Errorf("%w: missing deck payload", errInvalidPushChange)
 	}
 
 	entityID := change.GetEntityId()
-	entityUUID, err := uuidBytes(entityID)
-	if err != nil {
-		return fmt.Errorf("%w: invalid deck id: %w", errInvalidPushChange, err)
-	}
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertDeck)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertDeck)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityUUID,
+	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		info.assignedUSN,
 		payload.Name, payload.UpdatedAt,
 		payload.NewCardsPerDay, payload.NewLearnedToday,
@@ -343,27 +309,24 @@ func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeI
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityUUID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *StmtCache) error {
+func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
 	payload := change.GetCollection()
 	if payload == nil {
 		return fmt.Errorf("%w: missing collection payload", errInvalidPushChange)
 	}
 
-	entityID, err := uuidBytes(change.GetEntityId())
-	if err != nil {
-		return fmt.Errorf("%w: invalid collection id: %w", errInvalidPushChange, err)
-	}
+	entityID := change.GetEntityId()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertCollection)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertCollection)
 	if err != nil {
 		return err
 	}
 	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		info.assignedUSN,
-		payload.SqliteSchemaVersion, payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson)
+		payload.SqliteSchemaVersion, payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson, false)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert collection", "error", err)
 		return err
@@ -372,7 +335,7 @@ func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyC
 	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeInfo, stmtCache *StmtCache, op PushOp, entityID []byte, change *syncv1.SyncChange) error {
+func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, op syncsql.PushOp, entityID []byte, change *syncv1.SyncChange) error {
 	if change.DeletedAt == nil {
 		return fmt.Errorf("%w: delete missing deleted_at", errInvalidPushChange)
 	}
@@ -380,7 +343,7 @@ func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeI
 		return fmt.Errorf("%w: delete must not include payload", errInvalidPushChange)
 	}
 
-	stmt, err := stmtCache.Get(ctx, op)
+	stmt, err := stmtCache.GetPush(ctx, op)
 	if err != nil {
 		return err
 	}
@@ -394,11 +357,11 @@ func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeI
 	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, deletedAt)
 }
 
-func (s *PushChangeStore) applySyncUnit(ctx context.Context, info applyChangeInfo, stmtCache *StmtCache, entityID []byte, change *syncv1.SyncChange, updatedAt int64) error {
+func (s *PushChangeStore) applySyncUnit(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, entityID []byte, change *syncv1.SyncChange, updatedAt int64) error {
 	entityType := change.GetEntityType()
 	op := change.GetOp()
 
-	stmt, err := stmtCache.Get(ctx, PushOpUpsertSyncUnit)
+	stmt, err := stmtCache.GetPush(ctx, syncsql.PushOpUpsertSyncUnit)
 	if err != nil {
 		return err
 	}
