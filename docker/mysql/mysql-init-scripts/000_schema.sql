@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS review_logs (
 
     learning_steps INT NOT NULL,
     state TINYINT NOT NULL,
-    duration TINYINT NOT NULL,
+    duration MEDIUMINT NOT NULL,
 
     PRIMARY KEY (user_id, id),
     INDEX ix_review_logs_usn (user_id ASC, usn ASC)

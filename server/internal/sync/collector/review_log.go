@@ -17,7 +17,7 @@ type ReviewLogRow struct {
 	Stability     float64
 	LearningSteps int32
 	State         int8
-	Duration      int8
+	Duration      int32
 }
 
 const (
@@ -83,7 +83,7 @@ func (c *PullCollector) AddReviewLogChanges(rows *sql.Rows, limit int) (CollectR
 			Stability:     row.Stability,
 			LearningSteps: row.LearningSteps,
 			State:         int32(row.State),
-			Duration:      int32(row.Duration),
+			Duration:      row.Duration,
 		}
 
 		syncChange := &syncv1.SyncChange{
