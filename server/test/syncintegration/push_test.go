@@ -31,7 +31,7 @@ func TestPushCollectionMissingPayload(t *testing.T) {
 				Usn:        -1,
 			},
 		},
-		LastBatch: true,
+		FinishPush: false,
 	}, accessToken))
 
 	require.Nil(t, resp)
@@ -67,12 +67,17 @@ func TestPushCollectionSuccess(t *testing.T) {
 				Payload:    &syncv1.SyncChange_Collection{Collection: collection},
 			},
 		},
-		LastBatch: true,
+		FinishPush: false,
 	}, accessToken))
 
 	require.NoError(t, err)
 	require.Equal(t, int32(1), resp.Msg.BatchSeq)
 	require.Len(t, resp.Msg.Changes, 1)
+
+	finishPushResp := sendFinishPush(t, client, accessToken, handshakeResp.GetSessionId(), 2)
+	require.Equal(t, int32(2), finishPushResp.BatchSeq)
+	require.Empty(t, finishPushResp.Changes)
+
 	assignedChange := resp.Msg.Changes[0]
 	require.Equal(t, collectionID, assignedChange.EntityId)
 	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_COLLECTION, assignedChange.EntityType)

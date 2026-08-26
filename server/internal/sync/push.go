@@ -18,6 +18,26 @@ func (h *SyncHandler) Push(ctx context.Context,
 		h.logger.ErrorCtx(ctx, "invalid userID after AuthInterceptor in Push", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, nil)
 	}
+	// 如果是 finish_batch，则标记 push 完成
+	if req.Msg.FinishPush {
+		if len(req.Msg.Changes) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("finish_push batch should not contain changes"))
+		}
+		h.logger.InfoCtx(ctx, "received finish_push batch", "userID", userID, "sessionID", req.Msg.SessionId, "batchSeq", req.Msg.BatchSeq)
+		if err := h.sessionStore.MarkPushFinished(ctx, userID, req.Msg.SessionId, req.Msg.BatchSeq); err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(&syncv1.PushResponse{
+			BatchSeq: req.Msg.BatchSeq,
+			Changes:  nil,
+		}), nil
+	}
+
+	// 如果是普通的 push batch，则校验 changes 是否为空
+	if len(req.Msg.Changes) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("push changes is empty"))
+	}
+
 	result, err := h.claimPushBatch(ctx, req.Msg, userID)
 	if err != nil {
 		h.logger.InfoCtx(ctx, "claimPushBatch failed", "userID", userID, "error", err)
@@ -36,12 +56,6 @@ func (h *SyncHandler) Push(ctx context.Context,
 
 	// 应用成功
 	h.logger.InfoCtx(ctx, "ApplyPushChanges success", "userID", userID, "assignedStartUSN", result.AssignedStartUSN, "changeCount", len(req.Msg.Changes))
-	// 如果是最后一个 batch，则标记 push 完成
-	if req.Msg.LastBatch {
-		if err := h.sessionStore.MarkPushFinished(ctx, userID, req.Msg.SessionId); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, nil)
-		}
-	}
 	return connect.NewResponse(&syncv1.PushResponse{
 		BatchSeq: req.Msg.BatchSeq,
 		Changes:  assignedChanges,

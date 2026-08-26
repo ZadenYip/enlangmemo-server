@@ -16,7 +16,7 @@ func TestMarkPushFinishedRedisError(t *testing.T) {
 	})
 	store := NewSessionStore(nil, rdb, logging.NewServerLog())
 
-	err := store.MarkPushFinished(t.Context(), 10001, "session-id-1")
+	err := store.MarkPushFinished(t.Context(), 10001, "session-id-1", 1)
 
 	require.Error(t, err)
 }

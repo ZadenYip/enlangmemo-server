@@ -158,14 +158,14 @@ func TestSessionStoreMarkPushFinished(t *testing.T) {
 	require.Equal(t, ss.CreateSessionCreated, createResult)
 
 	key := ss.RdbSessionKey(session.UserID)
-	err = store.MarkPushFinished(ctx, session.UserID, session.SessionID)
+	err = store.MarkPushFinished(ctx, session.UserID, session.SessionID, 1)
 	require.NoError(t, err)
 
 	gotState, err := suite.Env.RDB.HGet(ctx, key, "state").Int64()
 	require.NoError(t, err)
 	require.Equal(t, int64(ss.SyncSessionStateAwaitingFinish), gotState)
 
-	err = store.MarkPushFinished(ctx, session.UserID, "other-session")
+	err = store.MarkPushFinished(ctx, session.UserID, "other-session", 1)
 	require.Error(t, err)
 }
 
@@ -175,7 +175,36 @@ func TestSessionStoreMarkPushFinishedSessionNotFound(t *testing.T) {
 	resetEnv(t)
 	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
 
-	err := store.MarkPushFinished(t.Context(), 10001, "session-id-1")
+	err := store.MarkPushFinished(t.Context(), 10001, "session-id-1", 1)
 
 	require.Error(t, err)
+}
+
+// TestSessionStoreMarkPushFinishedStateMismatch
+// 测试 AWAITING_PUSH_OR_FINISH 状态应直接 FinishSync，不接受 finish_push 触发的 MarkPushFinished。
+func TestSessionStoreMarkPushFinishedStateMismatch(t *testing.T) {
+	resetEnv(t)
+	ctx := t.Context()
+	store := ss.NewSessionStore(suite.Env.DB, suite.Env.RDB, logging.NewServerLog())
+	session := ss.SyncSession{
+		UserID:                      10001,
+		State:                       ss.SyncSessionStateAwaitingPushOrFinish,
+		ExpectedBatchSeq:            1,
+		SyncCursorUSN:               12,
+		SessionID:                   "session-id-1",
+		CliSyncCursorUSNAtHandshake: 3,
+		SrvSyncCursorUSNAtHandshake: 12,
+		DeviceID:                    "device-1",
+	}
+
+	createResult, err := store.CreateSession(ctx, session)
+	require.NoError(t, err)
+	require.Equal(t, ss.CreateSessionCreated, createResult)
+
+	err = store.MarkPushFinished(ctx, session.UserID, session.SessionID, 1)
+
+	require.Error(t, err)
+	gotState, err := suite.Env.RDB.HGet(ctx, ss.RdbSessionKey(session.UserID), "state").Int64()
+	require.NoError(t, err)
+	require.Equal(t, int64(ss.SyncSessionStateAwaitingPushOrFinish), gotState)
 }

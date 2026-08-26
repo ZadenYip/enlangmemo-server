@@ -38,11 +38,14 @@ func TestFinishSyncSuccess(t *testing.T) {
 				Payload:    &syncv1.SyncChange_Collection{Collection: collection},
 			},
 		},
-		LastBatch: true,
 	}, accessToken))
 	require.NoError(t, err)
 	require.Len(t, pushResp.Msg.Changes, 1)
 	require.Equal(t, handshakeResp.ServerSyncCursorUsn, pushResp.Msg.Changes[0].GetUsn())
+
+	finishPushResp := sendFinishPush(t, client, accessToken, handshakeResp.GetSessionId(), 2)
+	require.Equal(t, int32(2), finishPushResp.BatchSeq)
+	require.Empty(t, finishPushResp.Changes)
 
 	finishResp, err := client.FinishSync(t.Context(), newAuthorizedRequest(&syncv1.FinishSyncRequest{
 		SessionId: handshakeResp.GetSessionId(),

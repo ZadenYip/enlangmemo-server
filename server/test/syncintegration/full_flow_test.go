@@ -203,10 +203,13 @@ func (c *fullFlowClient) pushChangesInSession(t *testing.T, sessionID string, ba
 		SessionId: sessionID,
 		BatchSeq:  batchSeq,
 		Changes:   changes,
-		LastBatch: true,
 	})
 	assignedChanges := requirePushAssignedUSNs(t, changes, pushResp.Changes, c.syncCursorUSN)
 	c.syncCursorUSN += int64(len(changes))
+
+	finishPushResp := sendFinishPush(t, c.rpc, c.accessToken, sessionID, batchSeq+1)
+	require.Equal(t, batchSeq+1, finishPushResp.BatchSeq)
+	require.Empty(t, finishPushResp.Changes)
 	return assignedChanges
 }
 

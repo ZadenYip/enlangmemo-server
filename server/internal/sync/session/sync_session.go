@@ -79,8 +79,8 @@ type SessionStorer interface {
 	// 返回的 AssignedStartUSN 是本 batch 第一条 change 对应的 USN。
 	ClaimPushBatch(ctx context.Context, userID int64, sessionID string, curBatchSeq int32, changeCount int) (ClaimPushBatchResult, error)
 
-	// MarkPushFinished 在最后一个 Push batch 落库成功后，将 session state 改为 AWAITING_FINISH
-	MarkPushFinished(ctx context.Context, userID int64, sessionID string) error
+	// MarkPushFinished 在客户端发送 finish_push 空 batch 后，将 session state 改为 AWAITING_FINISH
+	MarkPushFinished(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) error
 
 	// ClaimPullBatch 校验 Pull session 和 batch，并返回当前 Pull 游标与剩余实体类型队列
 	// 如果校验失败则返回 (ClaimPullBatchResult, nil)，如果是内部错误则返回 (ClaimPullBatchResult{}, error)

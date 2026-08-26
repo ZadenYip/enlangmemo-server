@@ -37,7 +37,7 @@ func (s *fakePushSessionStore) ClaimPushBatch(ctx context.Context, userID int64,
 	return ss.ClaimPushBatchResult{LuaResult: s.claimResult, AssignedStartUSN: s.assignedUSN}, s.claimErr
 }
 
-func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
+func (s *fakePushSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) error {
 	panic("MarkPushFinished should not be called")
 }
 

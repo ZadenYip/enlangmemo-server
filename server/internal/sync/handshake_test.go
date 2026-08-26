@@ -72,8 +72,8 @@ func (s *fakeSessionStore) ClaimPushBatch(ctx context.Context, userID int64, ses
 	return args.Get(0).(ss.ClaimPushBatchResult), args.Error(1)
 }
 
-func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string) error {
-	args := s.Called(ctx, userID, sessionID)
+func (s *fakeSessionStore) MarkPushFinished(ctx context.Context, userID int64, sessionID string, curBatchSeq int32) error {
+	args := s.Called(ctx, userID, sessionID, curBatchSeq)
 	return args.Error(0)
 }
 

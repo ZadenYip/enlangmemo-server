@@ -60,3 +60,14 @@ func startPushSync(t *testing.T, client syncv1connect.SyncServiceClient, accessT
 	require.Zero(t, resp.ServerLastSyncTime)
 	return resp
 }
+
+func sendFinishPush(t *testing.T, client syncv1connect.SyncServiceClient, accessToken string, sessionID string, batchSeq int32) *syncv1.PushResponse {
+	t.Helper()
+	resp, err := client.Push(t.Context(), newAuthorizedRequest(&syncv1.PushRequest{
+		SessionId:  sessionID,
+		BatchSeq:   batchSeq,
+		FinishPush: true,
+	}, accessToken))
+	require.NoError(t, err)
+	return resp.Msg
+}
