@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS sync_units (
     usn BIGINT NOT NULL,
 
     entity_id BINARY(16) NOT NULL,
-    entity_type TINYINT NOT NULL COMMENT '1=collection, 2=deck, 3=note_type, 4=note, 5=processing_note, 6=card, 7=review_log',
+    entity_type TINYINT NOT NULL COMMENT '1=collection, 2=deck, 3=note_type, 4=processing_note, 5=note, 6=card, 7=review_log',
     op TINYINT NOT NULL COMMENT '1=UPSERT, 2=DELETE',
 
     updated_at BIGINT NOT NULL,

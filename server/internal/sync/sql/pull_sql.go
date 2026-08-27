@@ -11,11 +11,11 @@ var pullDecksSQL string
 //go:embed scripts/pull_note_types.sql
 var pullNoteTypesSQL string
 
-//go:embed scripts/pull_notes.sql
-var pullNotesSQL string
-
 //go:embed scripts/pull_processing_notes.sql
 var pullProcessingNotesSQL string
+
+//go:embed scripts/pull_notes.sql
+var pullNotesSQL string
 
 //go:embed scripts/pull_cards.sql
 var pullCardsSQL string
@@ -29,8 +29,8 @@ const (
 	PullOpSelectCollection PullOp = iota
 	PullOpSelectDecks
 	PullOpSelectNoteTypes
-	PullOpSelectNotes
 	PullOpSelectProcessingNotes
+	PullOpSelectNotes
 	PullOpSelectCards
 	PullOpSelectReviewLogs
 )
@@ -39,8 +39,8 @@ var pullOpToSQL = [...]string{
 	PullOpSelectCollection:      pullCollectionSQL,
 	PullOpSelectDecks:           pullDecksSQL,
 	PullOpSelectNoteTypes:       pullNoteTypesSQL,
-	PullOpSelectNotes:           pullNotesSQL,
 	PullOpSelectProcessingNotes: pullProcessingNotesSQL,
+	PullOpSelectNotes:           pullNotesSQL,
 	PullOpSelectCards:           pullCardsSQL,
 	PullOpSelectReviewLogs:      pullReviewLogsSQL,
 }

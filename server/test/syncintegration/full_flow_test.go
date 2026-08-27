@@ -307,19 +307,6 @@ func fullFlowUpsertChanges(ids fullFlowIDs, now int64) []*syncv1.SyncChange {
 			}},
 		},
 		{
-			EntityId:   ids.noteID,
-			EntityType: syncv1.EntityType_ENTITY_TYPE_NOTE,
-			Op:         syncv1.ChangeOp_CHANGE_OP_UPSERT,
-			Usn:        -1,
-			Payload: &syncv1.SyncChange_Note{Note: &syncv1.NotePayload{
-				NoteTypeId: ids.noteTypeID,
-				CreatedAt:  now,
-				UpdatedAt:  now + 4,
-				SenseId:    &senseID,
-				FieldsJson: `{"front":"note"}`,
-			}},
-		},
-		{
 			EntityId:   ids.pcsNoteID,
 			EntityType: syncv1.EntityType_ENTITY_TYPE_PROCESSING_NOTE,
 			Op:         syncv1.ChangeOp_CHANGE_OP_UPSERT,
@@ -330,6 +317,19 @@ func fullFlowUpsertChanges(ids fullFlowIDs, now int64) []*syncv1.SyncChange {
 				UpdatedAt:  now + 5,
 				SenseId:    &senseID,
 				FieldsJson: `{"front":"processing"}`,
+			}},
+		},
+		{
+			EntityId:   ids.noteID,
+			EntityType: syncv1.EntityType_ENTITY_TYPE_NOTE,
+			Op:         syncv1.ChangeOp_CHANGE_OP_UPSERT,
+			Usn:        -1,
+			Payload: &syncv1.SyncChange_Note{Note: &syncv1.NotePayload{
+				NoteTypeId: ids.noteTypeID,
+				CreatedAt:  now,
+				UpdatedAt:  now + 4,
+				SenseId:    &senseID,
+				FieldsJson: `{"front":"note"}`,
 			}},
 		},
 		{
