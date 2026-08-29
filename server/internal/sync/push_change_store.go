@@ -100,7 +100,7 @@ func (s *PushChangeStore) applyChange(ctx context.Context, info applyChangeInfo,
 		return fmt.Errorf("%w: nil sync change", errInvalidPushChange)
 	}
 	if change.GetUsn() != -1 {
-		return fmt.Errorf("%w: usn must be -1: %d", errInvalidPushChange, change.GetUsn())
+		return fmt.Errorf("%w: sync change usn expected -1, got %d", errInvalidPushChange, change.GetUsn())
 	}
 
 	switch change.GetOp() {
@@ -137,22 +137,20 @@ func (s *PushChangeStore) applyUpsert(ctx context.Context, info applyChangeInfo,
 }
 
 func (s *PushChangeStore) applyDelete(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
-	entityID := change.GetEntityId()
-
 	switch change.GetEntityType() {
 	case syncv1.EntityType_ENTITY_TYPE_REVIEW_LOG:
 		s.logger.ErrorCtx(ctx, "review_log delete is not supported", "entity_id", change.GetEntityId())
 		return fmt.Errorf("%w: review_log delete is not supported", errInvalidPushChange)
 	case syncv1.EntityType_ENTITY_TYPE_CARD:
-		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteCard, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteCard, change)
 	case syncv1.EntityType_ENTITY_TYPE_NOTE:
-		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNote, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNote, change)
 	case syncv1.EntityType_ENTITY_TYPE_PROCESSING_NOTE:
-		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteProcessingNote, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteProcessingNote, change)
 	case syncv1.EntityType_ENTITY_TYPE_NOTE_TYPE:
-		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNoteType, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteNoteType, change)
 	case syncv1.EntityType_ENTITY_TYPE_DECK:
-		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteDeck, entityID, change)
+		return s.applySoftDelete(ctx, info, stmtCache, syncsql.PushOpDeleteDeck, change)
 	case syncv1.EntityType_ENTITY_TYPE_COLLECTION:
 		s.logger.ErrorCtx(ctx, "collection delete is not supported", "entity_id", change.GetEntityId())
 		return fmt.Errorf("%w: collection delete is not supported", errInvalidPushChange)
@@ -188,7 +186,7 @@ func (s *PushChangeStore) applyReviewLogUpsert(ctx context.Context, info applyCh
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.ReviewTime)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.ReviewTime)
 }
 
 func (s *PushChangeStore) applyCardUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -214,7 +212,7 @@ func (s *PushChangeStore) applyCardUpsert(ctx context.Context, info applyChangeI
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
 func (s *PushChangeStore) applyNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -238,7 +236,7 @@ func (s *PushChangeStore) applyNoteUpsert(ctx context.Context, info applyChangeI
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
 func (s *PushChangeStore) applyProcessingNoteUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -261,7 +259,7 @@ func (s *PushChangeStore) applyProcessingNoteUpsert(ctx context.Context, info ap
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
 func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -284,7 +282,7 @@ func (s *PushChangeStore) applyNoteTypeUpsert(ctx context.Context, info applyCha
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
 func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -309,7 +307,7 @@ func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeI
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
 func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyChangeInfo, change *syncv1.SyncChange, stmtCache *syncsql.PushStmtCache) error {
@@ -332,10 +330,10 @@ func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyC
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, payload.UpdatedAt)
+	return s.applySyncUnit(ctx, info, stmtCache, change, payload.UpdatedAt)
 }
 
-func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, op syncsql.PushOp, entityID []byte, change *syncv1.SyncChange) error {
+func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, op syncsql.PushOp, change *syncv1.SyncChange) error {
 	if change.DeletedAt == nil {
 		return fmt.Errorf("%w: delete missing deleted_at", errInvalidPushChange)
 	}
@@ -348,16 +346,28 @@ func (s *PushChangeStore) applySoftDelete(ctx context.Context, info applyChangeI
 		return err
 	}
 	deletedAt := change.GetDeletedAt()
-	_, err = stmt.ExecContext(ctx, info.assignedUSN, deletedAt, info.userID, entityID)
+	result, err := stmt.ExecContext(ctx, info.assignedUSN, deletedAt, info.userID, change.GetEntityId())
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to apply soft delete", "entity_id", change.GetEntityId(), "entity_type", change.GetEntityType(), "error", err)
 		return err
 	}
 
-	return s.applySyncUnit(ctx, info, stmtCache, entityID, change, deletedAt)
+	if rowsAffected, err := result.RowsAffected(); err != nil {
+		s.logger.ErrorCtx(ctx, "failed to get rows affected after soft delete", "entity_id", change.GetEntityId(), "entity_type", change.GetEntityType(), "error", err)
+		return err
+	} else if rowsAffected == 0 {
+		// 如果是删除操作，但是没有任何行被影响，说明这个实体已经不存在或者标记删除了，直接跳过即可
+		// 之所以客户端要依旧保持会传不存在实体的删除，是因为没法确认另个客户端会不会上传过这个实体，因为修改和创建新实体都是 usn = -1。
+		// 即使利用 usn = -2 之类标记是知道上传过服务器，不上传 usn = -1 而是客户端直接物理删除，不产生 tombstone，会遇到客户端因为网络问题没能成功收到分配
+		// usn，让客户端以为没上传过这个实体，从而导致同步的时候实体又复活了。
+		s.logger.InfoCtx(ctx, "soft delete affected no rows", "entity_id", change.GetEntityId(), "entity_type", change.GetEntityType())
+		return nil
+	}
+
+	return s.applySyncUnit(ctx, info, stmtCache, change, deletedAt)
 }
 
-func (s *PushChangeStore) applySyncUnit(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, entityID []byte, change *syncv1.SyncChange, updatedAt int64) error {
+func (s *PushChangeStore) applySyncUnit(ctx context.Context, info applyChangeInfo, stmtCache *syncsql.PushStmtCache, change *syncv1.SyncChange, updatedAt int64) error {
 	entityType := change.GetEntityType()
 	op := change.GetOp()
 
@@ -365,7 +375,7 @@ func (s *PushChangeStore) applySyncUnit(ctx context.Context, info applyChangeInf
 	if err != nil {
 		return err
 	}
-	_, err = stmt.ExecContext(ctx, info.userID, entityID, int32(entityType), int32(op), info.assignedUSN, updatedAt)
+	_, err = stmt.ExecContext(ctx, info.userID, change.GetEntityId(), int32(entityType), int32(op), info.assignedUSN, updatedAt)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert sync_unit", "entity_type", entityType, "op", op, "error", err)
 		return err

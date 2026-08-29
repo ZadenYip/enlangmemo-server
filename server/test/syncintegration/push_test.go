@@ -115,3 +115,94 @@ func TestPushCollectionSuccess(t *testing.T) {
 	require.Equal(t, int32(syncv1.ChangeOp_CHANGE_OP_UPSERT), gotSyncUnit.Op)
 	require.Equal(t, collection.UpdatedAt, gotSyncUnit.UpdatedAt)
 }
+
+// TestPushDeleteAlreadyDeletedDeckDoesNotCreateSyncUnit 测试删除已经被删除的实体时，
+// 服务端会消费该 change 并分配 USN，但不会产生新的 sync_unit。
+func TestPushDeleteAlreadyDeletedDeckDoesNotCreateSyncUnit(t *testing.T) {
+	resetEnv(t)
+	userID := createSyncTestUser(t, "del-deck-noop")
+	collectionID := insertSyncTestCollection(t, userID, syncTestCollectionRow{
+		sqliteSchemaVersion: 15,
+		lastSyncTime:        0,
+		syncCursorUSN:       1,
+	})
+
+	// 这里插入标记删除的 deck
+	deckUUID := uuid.Must(uuid.NewV7())
+	deckID := deckUUID[:]
+	oldDeckUSN := int64(1)
+	oldDeckUpdatedAt := int64(1_700_000_000_000)
+	deletedAt := int64(1_700_000_000_100)
+	_, err := suite.Env.DB.ExecContext(
+		t.Context(),
+		`INSERT INTO decks (
+			user_id, id, usn, name, updated_at,
+			new_cards_per_day, new_learned_today, learned_today, reviewed_today,
+			config, is_deleted
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+		userID,
+		deckID,
+		oldDeckUSN,
+		"deleted deck",
+		oldDeckUpdatedAt,
+		20,
+		0,
+		0,
+		0,
+		`{}`,
+	)
+	require.NoError(t, err)
+
+	client := newSyncTestClient()
+	accessToken := newSyncTestAccessToken(t, userID)
+	handshakeResp := startPushSync(t, client, accessToken, collectionID)
+	resp, err := client.Push(t.Context(), newAuthorizedRequest(&syncv1.PushRequest{
+		SessionId: handshakeResp.GetSessionId(),
+		BatchSeq:  1,
+		Changes: []*syncv1.SyncChange{
+			{
+				EntityId:   deckID,
+				EntityType: syncv1.EntityType_ENTITY_TYPE_DECK,
+				Op:         syncv1.ChangeOp_CHANGE_OP_DELETE,
+				Usn:        -1,
+				DeletedAt:  &deletedAt,
+			},
+		},
+	}, accessToken))
+
+	require.NoError(t, err)
+	require.Equal(t, int32(1), resp.Msg.BatchSeq)
+	require.Len(t, resp.Msg.Changes, 1)
+	assignedChange := resp.Msg.Changes[0]
+	require.Equal(t, deckID, assignedChange.GetEntityId())
+	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_DECK, assignedChange.GetEntityType())
+	require.Equal(t, syncv1.ChangeOp_CHANGE_OP_ASSIGN_USN, assignedChange.GetOp())
+	require.Equal(t, handshakeResp.GetServerSyncCursorUsn(), assignedChange.GetUsn())
+
+	var syncUnitCount int
+	err = suite.Env.DB.QueryRowContext(
+		t.Context(),
+		`SELECT COUNT(*) FROM sync_units WHERE user_id = ? AND entity_id = ?`,
+		userID,
+		deckID,
+	).Scan(&syncUnitCount)
+	require.NoError(t, err)
+	require.Zero(t, syncUnitCount)
+
+	var gotDeckUSN, gotDeckUpdatedAt int64
+	var gotIsDeleted bool
+	err = suite.Env.DB.QueryRowContext(
+		t.Context(),
+		`SELECT usn, updated_at, is_deleted FROM decks WHERE user_id = ? AND id = ?`,
+		userID,
+		deckID,
+	).Scan(&gotDeckUSN, &gotDeckUpdatedAt, &gotIsDeleted)
+	require.NoError(t, err)
+	require.Equal(t, oldDeckUSN, gotDeckUSN)
+	require.Equal(t, oldDeckUpdatedAt, gotDeckUpdatedAt)
+	// 本身就标记删除了
+	require.True(t, gotIsDeleted)
+
+	gotCol := getSyncTestCollection(t, userID, collectionID)
+	require.Equal(t, assignedChange.GetUsn()+1, gotCol.SyncCursorUSN)
+}

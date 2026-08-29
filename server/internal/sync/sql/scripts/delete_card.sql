@@ -5,4 +5,5 @@ SET
   updated_at = ?,
   is_deleted = 1
 WHERE user_id = ?
-  AND id = ?;
+  AND id = ?
+  AND is_deleted = 0;

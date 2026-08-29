@@ -45,6 +45,63 @@ func TestPullCollectionCardReviewLogSuccess(t *testing.T) {
 	requirePullSession(t, userID, ss.SyncSessionStateAwaitingPushOrFinish, 1, nil, 4)
 }
 
+// TestPullNoopDeleteConsumesUSNButReturnsEmptyLastBatch 测试删除不存在的实体时，
+// 该 change 仍然消费 USN，但不会产生 sync_unit；后续 Pull 应返回空 changes 和 last_batch=true。
+func TestPullNoopDeleteConsumesUSNButReturnsEmptyLastBatch(t *testing.T) {
+	resetEnv(t)
+	resetPullTestEntityTables(t)
+	userID := createSyncTestUser(t, "pull-noop-delete")
+	collectionID := insertSyncTestCollection(t, userID, syncTestCollectionRow{
+		sqliteSchemaVersion: 15,
+		lastSyncTime:        0,
+		syncCursorUSN:       1,
+	})
+	deckUUID := uuid.Must(uuid.NewV7())
+	deckID := deckUUID[:]
+	deletedAt := time.Now().UnixMilli()
+	client := newSyncTestClient()
+	accessToken := newSyncTestAccessToken(t, userID)
+
+	pushHandshake := startPushSync(t, client, accessToken, collectionID)
+	pushResp, err := client.Push(t.Context(), newAuthorizedRequest(&syncv1.PushRequest{
+		SessionId: pushHandshake.GetSessionId(),
+		BatchSeq:  1,
+		Changes: []*syncv1.SyncChange{
+			{
+				EntityId:   deckID,
+				EntityType: syncv1.EntityType_ENTITY_TYPE_DECK,
+				Op:         syncv1.ChangeOp_CHANGE_OP_DELETE,
+				Usn:        -1,
+				DeletedAt:  &deletedAt,
+			},
+		},
+	}, accessToken))
+	require.NoError(t, err)
+	require.Len(t, pushResp.Msg.Changes, 1)
+	require.Equal(t, int64(1), pushResp.Msg.Changes[0].GetUsn())
+	var syncUnitCount int
+	require.NoError(t, suite.Env.DB.QueryRowContext(
+		t.Context(),
+		`SELECT COUNT(*) FROM sync_units WHERE user_id = ? AND entity_id = ?`,
+		userID,
+		deckID,
+	).Scan(&syncUnitCount))
+	require.Zero(t, syncUnitCount)
+
+	finishPushResp := sendFinishPush(t, client, accessToken, pushHandshake.GetSessionId(), 2)
+	require.Empty(t, finishPushResp.Changes)
+	sendFinishSync(t, client, accessToken, pushHandshake.GetSessionId())
+
+	otherClient := newSyncTestClient()
+	pullHandshake := startPullSync(t, otherClient, accessToken, collectionID, 1, 2)
+	pullResp := sendPull(t, otherClient, accessToken, pullHandshake.GetSessionId(), 1)
+
+	require.Empty(t, pullResp.Changes)
+	require.True(t, pullResp.LastBatch)
+	require.Equal(t, int64(0), pullResp.BatchMaxUsn)
+	requirePullSession(t, userID, ss.SyncSessionStateAwaitingPushOrFinish, 1, nil, 2)
+}
+
 // TestPullNoteSizeExceededKeepsNoteInQueue 测试拉取 notes 和 cards note 时数据量超过 batchMaxSize 且 note 实体没拉取完时，
 // entityQueue 首个实体是 note，不会提前移除 note，队首变为 card
 func TestPullNoteSizeExceededKeepsNoteInQueue(t *testing.T) {

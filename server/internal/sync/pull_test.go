@@ -136,10 +136,11 @@ func TestPullReturnsInternalWhenEntityQueueCannotParse(t *testing.T) {
 
 func TestParseTypeQueueString(t *testing.T) {
 
-	// 测试空字符串
+	// 空字符串表示没有待拉取的实体类型
 	typeQueue := ""
-	_, err := parseEntityQueue(typeQueue)
-	require.Error(t, err)
+	queue, err := parseEntityQueue(typeQueue)
+	require.NoError(t, err)
+	require.Empty(t, queue)
 
 	// 测试非整数值
 	typeQueue = "1,not-an-integer,3"

@@ -20,6 +20,7 @@ type HandshakeStorer interface {
 	GetColInfoForHandshake(ctx context.Context, userID int64) (CollectionInfoForHandshake, error)
 
 	// 获取 Pulling 状态下要的 PullEntityQueue，确定哪些实体类型需要拉取
+	// 如果没有任何实体类型需要拉取，返回空字符串
 	GetPullEntityQueueForHandshake(ctx context.Context, userID int64, minUSNInclusive, maxUSNExclusive int64) (string, error)
 }
 
@@ -106,11 +107,8 @@ func (s *HandshakeStore) GetPullEntityQueueForHandshake(ctx context.Context, use
 		return "", err
 	}
 
+	// 如果没有任何实体类型需要拉取，queue 会是空字符串
 	queue := strings.Join(entityTypes, ",")
-	if queue == "" {
-		s.logger.ErrorCtx(ctx, "no entity types to pull for handshake", "userID", userID, "minUSNInclusive", minUSNInclusive, "maxUSNExclusive", maxUSNExclusive)
-		return "", errors.New("no entity types to pull for handshake, this should not happen")
-	}
 	return queue, nil
 }
 

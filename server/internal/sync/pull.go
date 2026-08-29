@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -29,6 +28,7 @@ func (h *SyncHandler) Pull(ctx context.Context,
 		return nil, err
 	}
 
+	// 这里即使 typeQueue 为 nil，也会因为 len 这个分片为 0 最后到后面的 MarkPullFinished
 	typeQueue, err := parseEntityQueue(claimResult.PullEntityQueue)
 	if err != nil {
 		h.logger.ErrorCtx(ctx, "failed to parse entity queue in Pull", "userID", userID, "pullEntityQueue", claimResult.PullEntityQueue, "err", err)
@@ -56,8 +56,9 @@ func (h *SyncHandler) Pull(ctx context.Context,
 			return nil, connect.NewError(connect.CodeInternal, nil)
 		}
 		return connect.NewResponse(&syncv1.PullResponse{
-			BatchSeq:    req.Msg.BatchSeq,
-			Changes:     c.Changes(),
+			BatchSeq: req.Msg.BatchSeq,
+			Changes:  c.Changes(),
+			// 如果本身就没有任何变更，MaxUSN 也会是 0，表示没有任何变更
 			BatchMaxUsn: c.MaxUSN(),
 			LastBatch:   true,
 		}), nil
@@ -100,12 +101,12 @@ func (h *SyncHandler) claimPullBatch(ctx context.Context, req *syncv1.PullReques
 }
 
 // parseEntityQueue 将 typeQueue（entitiesTypeQueue）转为
-// 如果没有 entityType，则返回 (0, nil)
-// 如果有 entityType，则返回 (entityType, nil)
-// 如果转换 type 为整数失败，则返回 (0, error)
+// 如果没有 entityType，则返回 (nil, nil)
+// 如果有 entityType，则返回 (entityTypes, nil)
+// 如果转换 type 为整数失败，则返回 (nil, error)
 func parseEntityQueue(typeQueue string) ([]int8, error) {
 	if typeQueue == "" {
-		return nil, fmt.Errorf("empty entities queue: %s", typeQueue)
+		return nil, nil
 	}
 
 	entities := strings.Split(typeQueue, ",")

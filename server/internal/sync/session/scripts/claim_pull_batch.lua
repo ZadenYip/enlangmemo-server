@@ -30,7 +30,7 @@ local serverSyncCursorUSNAtHandshake = tonumber(session[5])
 local pullEntityQueue = session[6]
 local curBatchSeq = tonumber(ARGV[2])
 
-if sessionID == false or state == nil or expectedBatchSeq == nil or syncCursorUSN == nil or serverSyncCursorUSNAtHandshake == nil or pullEntityQueue == false or pullEntityQueue == "" or curBatchSeq == nil then
+if sessionID == false or state == nil or expectedBatchSeq == nil or syncCursorUSN == nil or serverSyncCursorUSNAtHandshake == nil or pullEntityQueue == false or curBatchSeq == nil then
   return {2, 0, 0, ""}
 end
 
