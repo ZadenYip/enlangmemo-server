@@ -37,3 +37,23 @@ export class Auth {
     });
   }
 }
+
+/**
+ * 检查给定的 returnTo 是不是相对当前网站的路径，而不是外部 URL，路径开头是不是 /v1/oauth/authorize
+ * @param returnTo - 要检查的返回路径
+ * @returns 如果 returnTo 是一个安全的 OAuth 返回路径，则返回该路径，否则返回 null
+ * 
+ * 这个函数用于检查给定的 returnTo 参数是否是一个安全的 OAuth 返回路径。它确保：
+ */
+export function safeOAuthReturnTo(returnTo: string | null): string | null {
+  if (returnTo === null || !returnTo.startsWith('/') || returnTo.startsWith('//')) {
+    return null;
+  }
+
+  const url = new URL(returnTo, window.location.origin);
+  if (url.origin !== window.location.origin || url.pathname !== '/v1/oauth/authorize') {
+    return null;
+  }
+
+  return `${url.pathname}${url.search}`;
+}

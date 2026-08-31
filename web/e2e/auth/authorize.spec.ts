@@ -50,6 +50,50 @@ test.describe('Auth/authorize', () => {
   });
 
   /**
+   * 测试授权重定向到登录后，切到注册页注册成功后会返回到授权页，并此时有 SSO cookie 了
+   */
+  test('returns to authorize with session cookie after register', async ({ page }) => {
+    const loginId = `u${Date.now()}`;
+    const authorizePath = newAuthorizePath();
+
+    await page.goto(authorizePath);
+
+    await expect(page).toHaveURL(/\/login\?/);
+    const loginURL = new URL(page.url());
+    expect(loginURL.searchParams.get('return_to')).toBe(authorizePath);
+
+    await page.getByRole('link', { name: '注册' }).click();
+
+    await expect(page).toHaveURL(/\/signup\?/);
+    const signupURL = new URL(page.url());
+    expect(signupURL.pathname).toBe('/signup');
+    expect(signupURL.searchParams.get('return_to')).toBe(authorizePath);
+
+    await page.getByLabel('登录 ID').fill(loginId);
+    await page.getByLabel('昵称').fill('测试用户');
+    await page.getByLabel('密码').fill('testpassword');
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes('/v1/auth/register') &&
+          response.request().method() === 'POST' &&
+          response.status() === 201,
+      ),
+      page.getByRole('button', { name: '注册' }).click(),
+    ]);
+
+    await expect(page).toHaveURL((url) => url.pathname === '/v1/oauth/authorize');
+
+    const curURL = new URL(page.url());
+    expect(`${curURL.pathname}${curURL.search}`).toBe(authorizePath);
+
+    const ssoCookie = (await page.context().cookies()).find(
+      (cookie) => cookie.name === '__Host-sso_token',
+    );
+    expect(ssoCookie?.value).toBeTruthy();
+  });
+
+  /**
    * 授权时 client_id 不合法
    */
   test('already logged in users can access authorize endpoint', async ({ page, request }) => {

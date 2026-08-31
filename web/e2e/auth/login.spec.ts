@@ -21,8 +21,8 @@ test.describe('Auth/login', () => {
     await expect(page.getByText('登录成功')).toBeVisible();
 
     const cookies = await page.context().cookies();
-    const accessTokenCookie = cookies.find((cookie) => cookie.name === '__Host-sso_token');
-    expect(accessTokenCookie).toBeDefined();
-    expect(accessTokenCookie?.value).toBeDefined();
+    const ssoCookie = cookies.find((cookie) => cookie.name === '__Host-sso_token');
+    expect(ssoCookie).toBeDefined();
+    expect(ssoCookie?.value).toBeDefined();
   });
 });

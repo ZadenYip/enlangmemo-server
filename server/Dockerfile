@@ -1,7 +1,7 @@
 FROM golang:1.26
 
 WORKDIR /usr/src/app
-
+ENV GOPROXY=https://goproxy.cn,direct
 # pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
 COPY server/go.mod server/go.sum ./
 RUN go mod download

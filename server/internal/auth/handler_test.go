@@ -13,6 +13,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 )
 
 type mockUserStore struct {
@@ -87,12 +88,40 @@ func TestRegisterSuccess(t *testing.T) {
 	userStore := new(mockUserStore)
 	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
 		Return(int64(10001), nil)
-	handler := newTestHandler(userStore, new(mockSSOStore))
+	ssoStore := new(mockSSOStore)
+	ssoStore.On("Create", mock.Anything, int64(10001)).
+		Return("session-id", nil)
+	handler := newTestHandler(userStore, ssoStore)
 
 	rr := httptest.NewRecorder()
 	handler.register(rr, newRegisterRequest(`{"loginId":"alice","nickname":"Alice","password":"password"}`))
 
 	require.Equal(t, http.StatusCreated, rr.Code, "body = %s", rr.Body.String())
+	var ssoCookie *http.Cookie
+	for _, cookie := range rr.Result().Cookies() {
+		if cookie.Name == sso.SSOCookieName {
+			ssoCookie = cookie
+			break
+		}
+	}
+	require.Equal(t, "session-id", ssoCookie.Value)
+	userStore.AssertExpectations(t)
+}
+
+// 测试注册的时候，create sso session 报错的情况
+func TestRegisterSSOError(t *testing.T) {
+	userStore := new(mockUserStore)
+	userStore.On("CreateUser", mock.Anything, "alice", "Alice", passwordHashMatcher("password")).
+		Return(int64(10001), nil)
+	ssoStore := new(mockSSOStore)
+	ssoStore.On("Create", mock.Anything, int64(10001)).
+		Return("", errors.New("sso store error"))
+	handler := newTestHandler(userStore, ssoStore)
+
+	rr := httptest.NewRecorder()
+	handler.register(rr, newRegisterRequest(`{"loginId":"alice","nickname":"Alice","password":"password"}`))
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code, "body = %s", rr.Body.String())
 	userStore.AssertExpectations(t)
 }
 

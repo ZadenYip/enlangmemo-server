@@ -15,8 +15,9 @@ import {
 } from '@angular/forms/signals';
 import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Auth as AuthService, RegisterRequest, RegisterResponse } from '../auth';
+import { Auth as AuthService, RegisterRequest, RegisterResponse, safeOAuthReturnTo } from '../auth';
 import { MsgService } from '../../shared/msg-service';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-sign-up',
@@ -40,6 +41,7 @@ export class SignUp {
   };
   private auth = inject(AuthService);
   private msg = inject(MsgService);
+  private route = inject(ActivatedRoute);
 
   signUpModel = signal(this.INITIAL_MODEL);
 
@@ -82,6 +84,11 @@ export class SignUp {
   private handleSuccess(response: RegisterResponse) {
     this.signUpForm().reset({ ...this.INITIAL_MODEL });
     this.msg.success('注册成功', response);
+
+    const returnTo = safeOAuthReturnTo(this.route.snapshot.queryParamMap.get('return_to'));
+    if (returnTo !== null) {
+      window.location.assign(returnTo);
+    }
   }
 
   private handleError(error: unknown) {

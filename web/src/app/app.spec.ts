@@ -18,6 +18,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, enlangmemo-web');
+    expect(compiled.querySelector('nav')?.textContent).toContain('登录');
+    expect(compiled.querySelector('nav')?.textContent).toContain('注册');
   });
 });

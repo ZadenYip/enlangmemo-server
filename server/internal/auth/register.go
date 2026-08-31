@@ -9,6 +9,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
+	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	valid "github.com/zadenyip/enlangmemo-server/internal/validation"
 )
 
@@ -67,6 +68,17 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to create user", h.log.Error())
 		return
 	}
+
+	sessionID, err := h.sso.Create(r.Context(), userID)
+	if err != nil {
+		// 创建 session 失败
+		h.log.ErrorCtx(r.Context(), "failed to create sso SessionID in register", "error", err)
+		httpjson.ResponseStatusError(w, aip.StatusInternal, "Internal server error", h.log.Error())
+		return
+	}
+
+	ssoCookie := sso.GenerateCookie(sso.SSOCookieName, sessionID)
+	http.SetCookie(w, &ssoCookie)
 
 	h.log.InfoCtx(r.Context(), "user registered successfully", "userId", userID, "loginId", reg.LoginID, "nickname", reg.Nickname)
 	httpjson.ResponseJSON(w, http.StatusCreated, RegisterResponse{UserID: strconv.FormatInt(userID, 10)}, h.log.Error())
