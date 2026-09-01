@@ -6,7 +6,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./redis/redis_data:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -24,13 +24,16 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./mysql/mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
       - ./mysql/mysql-init-scripts:/docker-entrypoint-initdb.d
       # 挂载自定义配置文件
       - ./mysql/conf.cnf:/etc/mysql/conf.d/custom.cnf
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql -h 127.0.0.1 -u\"$$MYSQL_USER\" \"$$MYSQL_DATABASE\" -e 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 5s
+      start_period: 20s
+volumes:
+  mysql_data:
+  redis_data:
