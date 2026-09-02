@@ -6,7 +6,6 @@ require (
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/validate v0.6.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/alexedwards/argon2id v1.0.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.20.0
@@ -15,6 +14,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/mysql v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.43.0
 	github.com/zadenyip/enlangmemo-sync-api/packages/go v0.3.9
+	golang.org/x/crypto v0.51.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -75,7 +75,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.37.0 // indirect

@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	valid "github.com/zadenyip/enlangmemo-server/internal/validation"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterRequest struct {
@@ -49,12 +49,13 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwdHash, err := argon2id.CreateHash(reg.Password, &argon2Params)
+	passwdHashBytes, err := bcrypt.GenerateFromPassword([]byte(reg.Password), bcrypt.DefaultCost)
 	if err != nil {
 		h.log.ErrorCtx(r.Context(), "failed to hash password", "error", err)
 		httpjson.ResponseStatusError(w, aip.StatusInternal, "Failed to hash password", h.log.Error())
 		return
 	}
+	passwdHash := string(passwdHashBytes)
 
 	userID, err := h.users.CreateUser(r.Context(), reg.LoginID, reg.Nickname, passwdHash)
 	if err != nil {

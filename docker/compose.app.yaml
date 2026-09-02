@@ -18,8 +18,13 @@ services:
       dockerfile: server/Dockerfile
     container_name: dev-enlangmemo-server
     environment:
+      GOMEMLIMIT: "768MiB"
       DATABASE_URL: enlangmemo:enlangmemo@tcp(mysql:3306)/enlangmemo?parseTime=true
       REDIS_URL: redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
     ports:
       - "8080:8080"
     healthcheck:

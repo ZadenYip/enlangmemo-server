@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type mockUserStore struct {
@@ -32,8 +32,8 @@ func (store *mockUserStore) GetPasswordHash(ctx context.Context, loginID string)
 
 func passwordHashMatcher(password string) any {
 	return mock.MatchedBy(func(passwordHash string) bool {
-		match, err := argon2id.ComparePasswordAndHash(password, passwordHash)
-		return err == nil && match
+		err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+		return err == nil
 	})
 }
 
@@ -326,8 +326,9 @@ func TestLoginStoreError(t *testing.T) {
 
 // 测试登录时密码错误的情况
 func TestLoginInvalidPassword(t *testing.T) {
-	passwordHash, err := argon2id.CreateHash("password", &argon2Params)
+	passwordHashBytes, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
 	require.NoError(t, err)
+	passwordHash := string(passwordHashBytes)
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
 		Return(int64(10001), passwordHash, nil)
@@ -345,8 +346,9 @@ func TestLoginInvalidPassword(t *testing.T) {
 
 // 测试登录成功的情况
 func TestLoginSuccess(t *testing.T) {
-	passwordHash, err := argon2id.CreateHash("password", &argon2Params)
+	passwordHashBytes, err := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
 	require.NoError(t, err)
+	passwordHash := string(passwordHashBytes)
 	userStore := new(mockUserStore)
 	userStore.On("GetPasswordHash", mock.Anything, "alice").
 		Return(int64(10001), passwordHash, nil)

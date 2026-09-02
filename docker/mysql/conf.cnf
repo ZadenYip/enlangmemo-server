@@ -1,2 +1,16 @@
 [mysqld]
 transaction_isolation = READ-COMMITTED
+
+# 开启慢查询日志
+slow_query_log = 1
+
+# 超过多少秒的查询被记录（单位：秒，可设为小数如 0.5）
+long_query_time = 1
+
+# 记录没有使用索引的查询
+log_queries_not_using_indexes = 1
+
+innodb_buffer_pool_size = 1024M
+innodb_redo_log_capacity = 512M;
+
+slow_query_log_file = /var/lib/mysql/mysql-slow.log

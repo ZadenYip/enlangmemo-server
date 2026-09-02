@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/alexedwards/argon2id"
 	"github.com/zadenyip/enlangmemo-server/internal/aip"
 	"github.com/zadenyip/enlangmemo-server/internal/httpjson"
 	"github.com/zadenyip/enlangmemo-server/internal/server/session/sso"
 	valid "github.com/zadenyip/enlangmemo-server/internal/validation"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type LoginRequest struct {
@@ -58,8 +58,8 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	match, err := argon2id.ComparePasswordAndHash(req.Password, actualHash)
-	if err != nil {
+	err = bcrypt.CompareHashAndPassword([]byte(actualHash), []byte(req.Password))
+	if err != nil && err != bcrypt.ErrMismatchedHashAndPassword {
 		// 比较密码和哈希失败
 		h.log.ErrorCtx(r.Context(), "failed to compare password and hash",
 			"loginId", req.LoginID,
@@ -70,7 +70,7 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 密码错误
-	if !match {
+	if err == bcrypt.ErrMismatchedHashAndPassword {
 		h.log.InfoCtx(r.Context(), "invalid password", "loginId", req.LoginID)
 		httpjson.ResponseStatusError(w, aip.StatusUnauthenticated, "invalid login credentials", h.log.Error())
 		return
