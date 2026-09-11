@@ -4,6 +4,7 @@ SELECT
   id,
   usn,
   CASE WHEN is_deleted = 1 THEN NULL ELSE name END AS name,
+  CASE WHEN is_deleted = 1 THEN NULL ELSE reset_at END AS reset_at,
   updated_at,
   CASE WHEN is_deleted = 1 THEN NULL ELSE new_cards_per_day END AS new_cards_per_day,
   CASE WHEN is_deleted = 1 THEN NULL ELSE new_learned_today END AS new_learned_today,

@@ -276,6 +276,8 @@ func fullFlowUpsertChanges(ids fullFlowIDs, now int64) []*syncv1.SyncChange {
 				SqliteSchemaVersion: 15,
 				CreatedAt:           now,
 				UpdatedAt:           now + 1,
+				DailyResetTime:      4,
+				TimeZone:            "Asia/Shanghai",
 				ConfigJson:          `{"flow":"collection"}`,
 			}},
 		},
@@ -286,6 +288,7 @@ func fullFlowUpsertChanges(ids fullFlowIDs, now int64) []*syncv1.SyncChange {
 			Usn:        -1,
 			Payload: &syncv1.SyncChange_Deck{Deck: &syncv1.DeckPayload{
 				Name:            "deck",
+				ResetAt:         now + 10_000,
 				UpdatedAt:       now + 2,
 				NewCardsPerDay:  20,
 				NewLearnedToday: 1,
@@ -479,6 +482,8 @@ func requireCollectionPayloadEqual(t *testing.T, want, got *syncv1.CollectionPay
 	require.Equal(t, want.GetSqliteSchemaVersion(), got.GetSqliteSchemaVersion())
 	require.Equal(t, want.GetCreatedAt(), got.GetCreatedAt())
 	require.Equal(t, want.GetUpdatedAt(), got.GetUpdatedAt())
+	require.Equal(t, want.GetDailyResetTime(), got.GetDailyResetTime())
+	require.Equal(t, want.GetTimeZone(), got.GetTimeZone())
 	require.JSONEq(t, want.GetConfigJson(), got.GetConfigJson())
 }
 
@@ -486,6 +491,7 @@ func requireDeckPayloadEqual(t *testing.T, want, got *syncv1.DeckPayload) {
 	t.Helper()
 	require.NotNil(t, got)
 	require.Equal(t, want.GetName(), got.GetName())
+	require.Equal(t, want.GetResetAt(), got.GetResetAt())
 	require.Equal(t, want.GetUpdatedAt(), got.GetUpdatedAt())
 	require.Equal(t, want.GetNewCardsPerDay(), got.GetNewCardsPerDay())
 	require.Equal(t, want.GetNewLearnedToday(), got.GetNewLearnedToday())

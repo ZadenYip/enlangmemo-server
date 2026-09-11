@@ -65,6 +65,8 @@ type syncTestCollection struct {
 	SQLiteSchemaVersion int32
 	LastSyncTime        int64
 	SyncCursorUSN       int64
+	DailyResetTime      int32
+	TimeZone            string
 	CreatedAt           int64
 	UpdatedAt           int64
 	ConfigJSON          string
@@ -77,7 +79,7 @@ func getSyncTestCollection(t *testing.T, userID int64, collectionID []byte) sync
 	err := suite.Env.DB.QueryRowContext(
 		t.Context(),
 		`SELECT id, usn, sqlite_schema_version, last_sync_time, sync_cursor_usn,
-				created_at, updated_at, config, is_deleted
+				daily_reset_time, time_zone, created_at, updated_at, config, is_deleted
 			 FROM collections
 		 WHERE user_id = ? AND id = ?`,
 		userID,
@@ -88,6 +90,8 @@ func getSyncTestCollection(t *testing.T, userID int64, collectionID []byte) sync
 		&got.SQLiteSchemaVersion,
 		&got.LastSyncTime,
 		&got.SyncCursorUSN,
+		&got.DailyResetTime,
+		&got.TimeZone,
 		&got.CreatedAt,
 		&got.UpdatedAt,
 		&got.ConfigJSON,
@@ -121,14 +125,15 @@ func (i *pullTestInserter) InsertDeck(updatedAt int64) pullTestEntityChange {
 	_, err := suite.Env.DB.ExecContext(
 		i.t.Context(),
 		`INSERT INTO decks (
-			user_id, id, usn, name, updated_at,
+			user_id, id, usn, name, reset_at, updated_at,
 			new_cards_per_day, new_learned_today, learned_today, reviewed_today,
 			config, is_deleted
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
 		i.userID,
 		deckID,
 		usn,
 		"test deck",
+		updatedAt+1,
 		updatedAt,
 		newCardsPerDay,
 		newLearnedToday,
@@ -218,14 +223,16 @@ func (i *pullTestInserter) InsertCollectionWithUSN(usn, syncCursorUSN int64) pul
 		i.t.Context(),
 		`INSERT INTO collections (
 			user_id, id, usn, sqlite_schema_version, last_sync_time, sync_cursor_usn,
-			created_at, updated_at, config
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT())`,
+			daily_reset_time, time_zone, created_at, updated_at, config
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, JSON_OBJECT())`,
 		i.userID,
 		colID,
 		usn,
 		sqliteSchemaVersion,
 		lastSyncTime,
 		syncCursorUSN,
+		int32(4),
+		"Asia/Shanghai",
 		now,
 		now,
 	)

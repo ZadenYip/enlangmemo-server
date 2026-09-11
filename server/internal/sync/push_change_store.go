@@ -297,9 +297,10 @@ func (s *PushChangeStore) applyDeckUpsert(ctx context.Context, info applyChangeI
 	if err != nil {
 		return err
 	}
+
 	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		info.assignedUSN,
-		payload.Name, payload.UpdatedAt,
+		payload.Name, payload.ResetAt, payload.UpdatedAt,
 		payload.NewCardsPerDay, payload.NewLearnedToday,
 		payload.LearnedToday, payload.ReviewedToday, payload.ConfigJson)
 	if err != nil {
@@ -322,9 +323,11 @@ func (s *PushChangeStore) applyCollectionUpsert(ctx context.Context, info applyC
 	if err != nil {
 		return err
 	}
+
 	_, err = stmt.ExecContext(ctx, info.userID, entityID,
 		info.assignedUSN,
-		payload.SqliteSchemaVersion, payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson, false)
+		payload.SqliteSchemaVersion, payload.DailyResetTime, payload.TimeZone,
+		payload.CreatedAt, payload.UpdatedAt, payload.ConfigJson, false)
 	if err != nil {
 		s.logger.ErrorCtx(ctx, "failed to upsert collection", "error", err)
 		return err

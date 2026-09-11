@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS collections (
     last_sync_time BIGINT NOT NULL DEFAULT 0,
     sync_cursor_usn BIGINT NOT NULL DEFAULT 0,
 
+    daily_reset_time TINYINT NOT NULL DEFAULT 0,
+    time_zone VARCHAR(32) NOT NULL DEFAULT '',
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
     config JSON NOT NULL,
@@ -65,6 +67,7 @@ CREATE TABLE IF NOT EXISTS decks (
     usn BIGINT NOT NULL,
 
     name VARCHAR(32) NOT NULL,
+    reset_at BIGINT NOT NULL DEFAULT 0,
     updated_at BIGINT NOT NULL,
 
     new_cards_per_day INT NOT NULL DEFAULT 20,

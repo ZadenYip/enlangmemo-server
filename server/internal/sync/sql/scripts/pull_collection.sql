@@ -4,6 +4,8 @@ SELECT
   id,
   usn,
   sqlite_schema_version,
+  daily_reset_time,
+  time_zone,
   created_at,
   updated_at,
   config

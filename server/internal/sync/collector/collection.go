@@ -10,6 +10,8 @@ type CollectionRow struct {
 	ID                  []byte
 	Usn                 int64
 	SQLiteSchemaVersion int32
+	DailyResetTime      int32
+	TimeZone            string
 	CreatedAt           int64
 	UpdatedAt           int64
 	Config              string
@@ -21,6 +23,7 @@ const (
 	ColSQLiteSchemaVersionSize = 4
 	ColCreatedAtSize           = 8
 	ColUpdatedAtSize           = 8
+	ColDailyResetTimeSize      = 4
 )
 
 func (c *PullCollector) AddCollectionChanges(rows *sql.Rows, limit int) (CollectResult, error) {
@@ -42,6 +45,8 @@ func (c *PullCollector) AddCollectionChanges(rows *sql.Rows, limit int) (Collect
 			&row.ID,
 			&row.Usn,
 			&row.SQLiteSchemaVersion,
+			&row.DailyResetTime,
+			&row.TimeZone,
 			&row.CreatedAt,
 			&row.UpdatedAt,
 			&row.Config,
@@ -50,13 +55,15 @@ func (c *PullCollector) AddCollectionChanges(rows *sql.Rows, limit int) (Collect
 			return CollectResult{}, err
 		}
 
-		const fixedSize = ColIDSize + ColUsnSize + ColSQLiteSchemaVersionSize + ColCreatedAtSize + ColUpdatedAtSize
+		const fixedSize = ColIDSize + ColUsnSize + ColSQLiteSchemaVersionSize + ColCreatedAtSize + ColUpdatedAtSize + ColDailyResetTimeSize
 
-		c.actualSize += fixedSize + len(row.Config)
+		c.actualSize += fixedSize + len(row.TimeZone) + len(row.Config)
 		payload := syncv1.CollectionPayload{
 			SqliteSchemaVersion: row.SQLiteSchemaVersion,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
+			DailyResetTime:      row.DailyResetTime,
+			TimeZone:            row.TimeZone,
 			ConfigJson:          row.Config,
 		}
 		syncChange := syncv1.SyncChange{
