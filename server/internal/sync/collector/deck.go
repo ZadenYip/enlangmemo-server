@@ -10,6 +10,7 @@ type DeckRow struct {
 	ID              []byte
 	Usn             int64
 	Name            sql.NullString
+	ResetAt         sql.NullInt64
 	UpdatedAt       int64
 	NewCardsPerDay  sql.NullInt32
 	NewLearnedToday sql.NullInt32
@@ -22,6 +23,7 @@ type DeckRow struct {
 const (
 	DeckIDSize              = 16
 	DeckUsnSize             = 8
+	DeckResetAtSize         = 8
 	DeckUpdatedAtSize       = 8
 	DeckNewCardsPerDaySize  = 4
 	DeckNewLearnedTodaySize = 4
@@ -49,6 +51,7 @@ func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult
 			&row.ID,
 			&row.Usn,
 			&row.Name,
+			&row.ResetAt,
 			&row.UpdatedAt,
 			&row.NewCardsPerDay,
 			&row.NewLearnedToday,
@@ -61,7 +64,7 @@ func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult
 			return CollectResult{}, err
 		}
 
-		const fixedSize = DeckIDSize + DeckUsnSize + DeckUpdatedAtSize + DeckNewCardsPerDaySize + DeckNewLearnedTodaySize + DeckLearnedTodaySize + DeckReviewedTodaySize + DeckIsDeletedSize
+		const fixedSize = DeckIDSize + DeckUsnSize + DeckResetAtSize + DeckUpdatedAtSize + DeckNewCardsPerDaySize + DeckNewLearnedTodaySize + DeckLearnedTodaySize + DeckReviewedTodaySize + DeckIsDeletedSize
 		const deletedSize = DeckIDSize + DeckUsnSize + DeckUpdatedAtSize + DeckIsDeletedSize
 
 		if row.IsDeleted {
@@ -78,6 +81,7 @@ func (c *PullCollector) AddDeckChanges(rows *sql.Rows, limit int) (CollectResult
 			c.actualSize += fixedSize + len(row.Name.String) + len(row.Config.String)
 			payload := syncv1.DeckPayload{
 				Name:            row.Name.String,
+				ResetAt:         row.ResetAt.Int64,
 				UpdatedAt:       row.UpdatedAt,
 				NewCardsPerDay:  row.NewCardsPerDay.Int32,
 				NewLearnedToday: row.NewLearnedToday.Int32,

@@ -29,6 +29,7 @@ func TestAddDeckChangesStopsWhenLimitReached(t *testing.T) {
 	require.Len(t, c.Changes(), 1)
 	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_DECK, c.Changes()[0].GetEntityType())
 	require.Equal(t, int64(1), c.Changes()[0].GetUsn())
+	require.Equal(t, int64(1_700_000_010_000), c.Changes()[0].GetDeck().GetResetAt())
 }
 
 // TestAddDeckChangesStopsWhenCollectorIsFull mock 测试 AddDeckChanges 在 collector 达到最大大小时停止
@@ -73,6 +74,7 @@ func newDeckRows(t *testing.T, deckRows ...[]driver.Value) (*sql.Rows, func()) {
 		"id",
 		"usn",
 		"name",
+		"reset_at",
 		"updated_at",
 		"new_cards_per_day",
 		"new_learned_today",
@@ -103,6 +105,7 @@ func newDeckRowArgs(usn int64) []driver.Value {
 		[]byte("deck-id-00000001"),
 		usn,
 		"deck",
+		int64(1_700_000_010_000),
 		int64(1_700_000_000_000),
 		int32(20),
 		int32(1),

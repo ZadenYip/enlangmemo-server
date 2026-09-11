@@ -52,6 +52,8 @@ func TestPushCollectionSuccess(t *testing.T) {
 		SqliteSchemaVersion: 15,
 		CreatedAt:           1_700_000_000_000,
 		UpdatedAt:           1_700_000_000_100,
+		DailyResetTime:      4,
+		TimeZone:            "Asia/Shanghai",
 		ConfigJson:          `{"sync":"ok"}`,
 	}
 
@@ -92,6 +94,8 @@ func TestPushCollectionSuccess(t *testing.T) {
 	require.Equal(t, assignedUSN+1, gotCol.SyncCursorUSN)
 	require.Equal(t, collection.CreatedAt, gotCol.CreatedAt)
 	require.Equal(t, collection.UpdatedAt, gotCol.UpdatedAt)
+	require.Equal(t, collection.DailyResetTime, gotCol.DailyResetTime)
+	require.Equal(t, collection.TimeZone, gotCol.TimeZone)
 	require.JSONEq(t, collection.ConfigJson, gotCol.ConfigJSON)
 	require.False(t, gotCol.IsDeleted)
 
@@ -136,14 +140,15 @@ func TestPushDeleteAlreadyDeletedDeckDoesNotCreateSyncUnit(t *testing.T) {
 	_, err := suite.Env.DB.ExecContext(
 		t.Context(),
 		`INSERT INTO decks (
-			user_id, id, usn, name, updated_at,
+			user_id, id, usn, name, reset_at, updated_at,
 			new_cards_per_day, new_learned_today, learned_today, reviewed_today,
 			config, is_deleted
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
 		userID,
 		deckID,
 		oldDeckUSN,
 		"deleted deck",
+		oldDeckUpdatedAt+1,
 		oldDeckUpdatedAt,
 		20,
 		0,

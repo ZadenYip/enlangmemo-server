@@ -29,8 +29,9 @@ func TestAddCollectionChangesStopsWhenCollectorIsFull(t *testing.T) {
 
 // TestAddCollectionChangesMarksSizeExceededAfterCollectionFillsBatch mock 测试添加完 collection 后刚好达到 batch 最大大小
 func TestAddCollectionChangesMarksSizeExceededAfterCollectionFillsBatch(t *testing.T) {
-	const fixedSize = ColIDSize + ColUsnSize + ColSQLiteSchemaVersionSize + ColCreatedAtSize + ColUpdatedAtSize
-	config := strings.Repeat("x", MaxBatchSize-fixedSize)
+	const fixedSize = ColIDSize + ColUsnSize + ColSQLiteSchemaVersionSize + ColCreatedAtSize + ColUpdatedAtSize + ColDailyResetTimeSize
+	const timeZone = "Asia/Shanghai"
+	config := strings.Repeat("x", MaxBatchSize-fixedSize-len(timeZone))
 	rows, cleanup := newCollectionRows(t, newCollectionRowArgs(1, config))
 	defer cleanup()
 	c := NewPullCollector()
@@ -44,6 +45,8 @@ func TestAddCollectionChangesMarksSizeExceededAfterCollectionFillsBatch(t *testi
 	require.Len(t, c.Changes(), 1)
 	require.Equal(t, syncv1.EntityType_ENTITY_TYPE_COLLECTION, c.Changes()[0].GetEntityType())
 	require.Equal(t, int64(1), c.Changes()[0].GetUsn())
+	require.Equal(t, int32(4), c.Changes()[0].GetCollection().GetDailyResetTime())
+	require.Equal(t, "Asia/Shanghai", c.Changes()[0].GetCollection().GetTimeZone())
 	require.Equal(t, config, c.Changes()[0].GetCollection().GetConfigJson())
 }
 
@@ -71,6 +74,8 @@ func newCollectionRows(t *testing.T, collectionRows ...[]driver.Value) (*sql.Row
 		"id",
 		"usn",
 		"sqlite_schema_version",
+		"daily_reset_time",
+		"time_zone",
 		"created_at",
 		"updated_at",
 		"config",
@@ -97,6 +102,8 @@ func newCollectionRowArgs(usn int64, config string) []driver.Value {
 		[]byte("collection-id-01"),
 		usn,
 		int32(1),
+		int32(4),
+		"Asia/Shanghai",
 		int64(1_700_000_000_000),
 		int64(1_700_000_000_100),
 		config,
